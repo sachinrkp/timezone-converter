@@ -375,7 +375,8 @@ const ui = {
             resultElement: !!elements.result,
             inputUtcMs: appState.inputUtcMs,
             fromZone: appState.fromZoneGlobal,
-            toZone: appState.toZoneGlobal
+            toZone: appState.toZoneGlobal,
+            data: data
         });
         if (!elements.result) {
             console.error('❌ Result element not found!');
@@ -391,6 +392,12 @@ const ui = {
         console.log('🔄 Converted time:', convertedTime);
         console.log('🔄 From zone:', appState.fromZoneGlobal);
         console.log('🔄 To zone:', appState.toZoneGlobal);
+        console.log('🔄 Data passed to updateResults:', data);
+        // Force a DOM update by clearing first, then setting new content
+        elements.result.innerHTML = '';
+        // Add a timestamp to ensure the content is actually being updated
+        const timestamp = Date.now();
+        console.log('🔄 Updating results HTML with timestamp:', timestamp);
         elements.result.innerHTML = `
       <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
         <div class="flex items-center mb-2">
@@ -400,6 +407,7 @@ const ui = {
         <div class="text-lg font-mono text-green-700 dark:text-green-300">
           ${inputTime}
         </div>
+        <div class="text-xs text-gray-500 mt-1">Updated: ${new Date(timestamp).toLocaleTimeString()}</div>
       </div>
       
       <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -410,6 +418,7 @@ const ui = {
         <div class="text-lg font-mono text-blue-700 dark:text-blue-300">
           ${convertedTime}
         </div>
+        <div class="text-xs text-gray-500 mt-1">Updated: ${new Date(timestamp).toLocaleTimeString()}</div>
       </div>
     `;
         console.log('✅ Results HTML updated');
@@ -825,6 +834,7 @@ const setupEventListeners = () => {
             // Update timeline with the input time from the form
             ui.updateTimelineForTimezones();
             console.log('🔄 About to call ui.updateResults...');
+            // Update results with the new input time
             ui.updateResults({
                 convertedTime: utils.formatLocal(appState.inputUtcMs, toZone),
                 fromCurrent: utils.formatLocal(Date.now(), fromZone),
