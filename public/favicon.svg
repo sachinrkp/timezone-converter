@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <style>
+      .stopwatch-body { fill: #4f46e5; stroke: #312e81; stroke-width: 2; }
+      .stopwatch-face { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; }
+      .stopwatch-hands { stroke: #1e293b; stroke-width: 2; stroke-linecap: round; }
+      .stopwatch-button { fill: #6366f1; stroke: #312e81; stroke-width: 1; }
+      .stopwatch-crown { fill: #374151; }
+    </style>
+  </defs>
+  
+  <!-- Main stopwatch body -->
+  <circle cx="50" cy="55" r="35" class="stopwatch-body"/>
+  
+  <!-- Watch face -->
+  <circle cx="50" cy="55" r="28" class="stopwatch-face"/>
+  
+  <!-- Hour markers -->
+  <g class="stopwatch-hands">
+    <line x1="50" y1="30" x2="50" y2="33" stroke-width="2"/>
+    <line x1="50" y1="77" x2="50" y2="80" stroke-width="2"/>
+    <line x1="73" y1="55" x2="70" y2="55" stroke-width="2"/>
+    <line x1="27" y1="55" x2="30" y2="55" stroke-width="2"/>
+  </g>
+  
+  <!-- Clock hands -->
+  <g class="stopwatch-hands">
+    <!-- Hour hand -->
+    <line x1="50" y1="55" x2="50" y2="45" stroke-width="3"/>
+    <!-- Minute hand -->
+    <line x1="50" y1="55" x2="42" y2="40" stroke-width="2"/>
+    <!-- Second hand -->
+    <line x1="50" y1="55" x2="58" y2="35" stroke="#ef4444" stroke-width="1"/>
+  </g>
+  
+  <!-- Center dot -->
+  <circle cx="50" cy="55" r="2" fill="#1e293b"/>
+  
+  <!-- Top button -->
+  <rect x="47" y="18" width="6" height="8" rx="2" class="stopwatch-button"/>
+  
+  <!-- Crown/winding mechanism -->
+  <rect x="46" y="10" width="8" height="4" rx="2" class="stopwatch-crown"/>
+  
+  <!-- Side buttons -->
+  <rect x="85" y="45" width="4" height="8" rx="2" class="stopwatch-button"/>
+  <rect x="85" y="57" width="4" height="8" rx="2" class="stopwatch-button"/>
+</svg>
