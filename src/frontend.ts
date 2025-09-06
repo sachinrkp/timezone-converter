@@ -848,86 +848,122 @@ const setupEventListeners = (): void => {
 // Load current times
 const loadCurrentTimes = async (): Promise<void> => {
   try {
-    const timeData = await api.fetchCurrentTime();
+    // Get user's timezone
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    console.log('🌍 User timezone detected:', userTimezone);
     
-    // Update navigation bar local time (always visible)
-    const navLocalTimeElement = document.getElementById('navLocalTime');
-    if (navLocalTimeElement) {
-      const localDate = new Date(timeData.local);
-      navLocalTimeElement.textContent = localDate.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      });
-    }
-    
-    // Update local time display
-    const localTimeElement = document.getElementById('localTime');
-    if (localTimeElement) {
-      const localDate = new Date(timeData.local);
-      localTimeElement.textContent = localDate.toLocaleString();
-    }
-    
-    // Update mobile local time display
-    const localTimeMobileElement = document.getElementById('localTimeMobile');
-    if (localTimeMobileElement) {
-      const localDate = new Date(timeData.local);
-      localTimeMobileElement.textContent = localDate.toLocaleString();
-    }
-    
-    // Update UTC time display
-    const utcTimeElement = document.getElementById('utcTime');
-    if (utcTimeElement) {
-      const utcDate = new Date(timeData.utc);
-      utcTimeElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-    }
-    
-    // Update mobile UTC time display
-    const utcTimeMobileElement = document.getElementById('utcTimeMobile');
-    if (utcTimeMobileElement) {
-      const utcDate = new Date(timeData.utc);
-      utcTimeMobileElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-    }
-    
-    // Update every second
-    setInterval(async () => {
-      const timeData = await api.fetchCurrentTime();
+    // Update time displays
+    const updateTimes = () => {
+      const now = new Date();
       
-      // Update navigation bar local time
+      // Update navigation bar local time (user's actual timezone) - 24 hour format
+      const navLocalTimeElement = document.getElementById('navLocalTime');
       if (navLocalTimeElement) {
-        const localDate = new Date(timeData.local);
-        navLocalTimeElement.textContent = localDate.toLocaleTimeString('en-US', {
+        const localTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: userTimezone,
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-          hour12: true
-        });
+          hour12: false
+        }).format(now);
+        navLocalTimeElement.textContent = localTime;
       }
       
+      // Update desktop local time display
+      const localTimeElement = document.getElementById('localTime');
       if (localTimeElement) {
-        const localDate = new Date(timeData.local);
-        localTimeElement.textContent = localDate.toLocaleString();
+        const localTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: userTimezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now);
+        localTimeElement.textContent = `${localTime} (${userTimezone})`;
       }
       
+      // Update mobile local time display
+      const localTimeMobileElement = document.getElementById('localTimeMobile');
       if (localTimeMobileElement) {
-        const localDate = new Date(timeData.local);
-        localTimeMobileElement.textContent = localDate.toLocaleString();
+        const localTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: userTimezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now);
+        localTimeMobileElement.textContent = `${localTime} (${userTimezone})`;
       }
       
+      // Update UTC time display - 24 hour format
+      const utcTimeElement = document.getElementById('utcTime');
       if (utcTimeElement) {
-        const utcDate = new Date(timeData.utc);
-        utcTimeElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+        const utcTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'UTC',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now);
+        utcTimeElement.textContent = `${utcTime} UTC`;
       }
       
+      // Update mobile UTC time display
+      const utcTimeMobileElement = document.getElementById('utcTimeMobile');
       if (utcTimeMobileElement) {
-        const utcDate = new Date(timeData.utc);
-        utcTimeMobileElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+        const utcTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'UTC',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now);
+        utcTimeMobileElement.textContent = `${utcTime} UTC`;
       }
-    }, 1000);
+    };
+    
+    // Initial update
+    updateTimes();
+    
+    // Update every second
+    setInterval(updateTimes, 1000);
     
   } catch (error) {
     console.error('❌ Failed to load current times:', error);
+    // Fallback to basic Date methods
+    const updateTimesFallback = () => {
+      const now = new Date();
+      
+      const navLocalTimeElement = document.getElementById('navLocalTime');
+      if (navLocalTimeElement) {
+        navLocalTimeElement.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+      }
+      
+      const localTimeElement = document.getElementById('localTime');
+      if (localTimeElement) {
+        localTimeElement.textContent = now.toLocaleString('en-GB');
+      }
+      
+      const utcTimeElement = document.getElementById('utcTime');
+      if (utcTimeElement) {
+        utcTimeElement.textContent = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+      }
+    };
+    
+    updateTimesFallback();
+    setInterval(updateTimesFallback, 1000);
   }
 };
 
