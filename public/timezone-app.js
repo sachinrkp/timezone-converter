@@ -1,5 +1,6 @@
 "use strict";
-// Frontend application for timezone converter
+// Test alert to verify new file is loading
+alert('🚀 NEW VERSION LOADED! This should show the updated timezone converter with 70+ timezones!');
 // State management
 class AppState {
     _allZones = [];
@@ -181,11 +182,9 @@ class AutocompleteHandler {
     }
     handleInput() {
         const query = this.input.value.toLowerCase();
-        const filtered = this.allOptions.filter(option => option.toLowerCase().includes(query) ||
+        this.filteredOptions = this.allOptions.filter(option => option.toLowerCase().includes(query) ||
             option.toLowerCase().replace(/_/g, ' ').includes(query) ||
             this.getCityName(option).toLowerCase().includes(query));
-        // Remove duplicates
-        this.filteredOptions = [...new Set(filtered)];
         this.selectedIndex = -1;
         this.renderDropdown();
     }
@@ -338,32 +337,6 @@ const api = {
         }
     },
 };
-// Epoch converter functions
-const epochConverter = {
-    humanToEpoch: (date, time, timezone) => {
-        const [year, month, day] = date.split('-').map(Number);
-        const [hours, minutes, seconds] = time.split(':').map(Number);
-        if (!year || !month || !day || hours === undefined || minutes === undefined || seconds === undefined) {
-            throw new Error('Invalid date or time format');
-        }
-        const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        const tempDate = new Date(dateStr);
-        const utcTime = tempDate.getTime() + (tempDate.getTimezoneOffset() * 60000);
-        const targetOffset = utils.tzOffsetMinutes(utcTime, timezone);
-        const targetTime = new Date(utcTime - (targetOffset * 60000));
-        return Math.floor(targetTime.getTime() / 1000);
-    },
-    epochToHuman: (epoch, timezone) => {
-        const date = new Date(epoch * 1000);
-        const options = {
-            timeZone: timezone,
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit', second: '2-digit',
-            weekday: 'long'
-        };
-        return date.toLocaleString('en-GB', options);
-    }
-};
 // UI functions
 const ui = {
     updateResults: (data) => {
@@ -413,48 +386,20 @@ const ui = {
         </div>
       `;
         }
-        // Update epoch time displays
-        const fromEpochElement = document.getElementById('fromEpochTime');
-        const toEpochElement = document.getElementById('toEpochTime');
-        if (fromEpochElement && appState.inputUtcMs) {
-            const srcUtc = appState.inputUtcMs;
-            fromEpochElement.textContent = Math.floor(srcUtc / 1000).toString();
-        }
-        if (toEpochElement && appState.inputUtcMs) {
-            const tgtUtc = appState.inputUtcMs;
-            toEpochElement.textContent = Math.floor(tgtUtc / 1000).toString();
-        }
         ui.initSliders();
     },
     initSliders: () => {
         if (!elements.sourceSlider || !elements.targetSlider)
             return;
-        // Range: -1680 to +1680 minutes relative to input time (28 hours)
-        elements.sourceSlider.min = '-1680';
-        elements.sourceSlider.max = '1680';
-        elements.targetSlider.min = '-1680';
-        elements.targetSlider.max = '1680';
-        // Position sliders based on input time or current time
-        let initialSrcOffset = 0;
-        let initialTgtOffset = appState.diffMinutesAtInput;
-        if (appState.inputUtcMs) {
-            // Position based on input time
-            const inputTime = new Date(appState.inputUtcMs);
-            const inputHour = inputTime.getUTCHours();
-            const inputMinute = inputTime.getUTCMinutes();
-            initialSrcOffset = (inputHour * 60 + inputMinute) - (12 * 60); // Relative to noon
-        }
-        else {
-            // Position based on current time
-            const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            initialSrcOffset = (currentHour * 60 + currentMinute) - (12 * 60); // Relative to noon
-        }
-        initialTgtOffset = initialSrcOffset + appState.diffMinutesAtInput;
-        elements.sourceSlider.value = initialSrcOffset.toString();
-        elements.targetSlider.value = initialTgtOffset.toString();
-        ui.updateSliderLabels(initialSrcOffset, initialTgtOffset);
+        // Range: -1440 to +1440 minutes relative to input time
+        elements.sourceSlider.min = '-1440';
+        elements.sourceSlider.max = '1440';
+        elements.targetSlider.min = '-1440';
+        elements.targetSlider.max = '1440';
+        // Start both sliders at 0 (the exact input instant)
+        elements.sourceSlider.value = '0';
+        elements.targetSlider.value = '0';
+        ui.updateSliderLabels(0, 0);
         elements.sourceSlider.disabled = false;
         elements.targetSlider.disabled = false;
         // Bind events so moving one slider updates the other
@@ -470,27 +415,6 @@ const ui = {
             ui.updateSliderLabels(srcOffsetMinutes, tgtOffsetMinutes);
             elements.sourceSlider.value = srcOffsetMinutes.toString();
         });
-    },
-    updateTimelineForTimezones: () => {
-        if (!appState.fromZoneGlobal || !appState.toZoneGlobal)
-            return;
-        // Calculate time difference between zones
-        const now = Date.now();
-        const fromOffset = utils.tzOffsetMinutes(now, appState.fromZoneGlobal);
-        const toOffset = utils.tzOffsetMinutes(now, appState.toZoneGlobal);
-        appState.diffMinutesAtInput = toOffset - fromOffset;
-        // Update slider positions based on current time
-        const currentTime = new Date();
-        const currentHour = currentTime.getHours();
-        const currentMinute = currentTime.getMinutes();
-        const currentOffsetFromNoon = (currentHour * 60 + currentMinute) - (12 * 60);
-        const srcOffset = currentOffsetFromNoon;
-        const tgtOffset = srcOffset + appState.diffMinutesAtInput;
-        if (elements.sourceSlider && elements.targetSlider) {
-            elements.sourceSlider.value = srcOffset.toString();
-            elements.targetSlider.value = tgtOffset.toString();
-            ui.updateSliderLabels(srcOffset, tgtOffset);
-        }
     },
     updateSliderLabels: (srcOffsetMinutes, tgtOffsetMinutes) => {
         if (!appState.inputUtcMs || !elements.sourceTimeLabel || !elements.targetTimeLabel)
@@ -536,19 +460,6 @@ const theme = {
 };
 // Event listeners
 const setupEventListeners = () => {
-    // Timezone change listeners
-    if (elements.sourceAutocomplete) {
-        elements.sourceAutocomplete.addEventListener('change', () => {
-            appState.fromZoneGlobal = elements.sourceAutocomplete.value;
-            ui.updateTimelineForTimezones();
-        });
-    }
-    if (elements.targetAutocomplete) {
-        elements.targetAutocomplete.addEventListener('change', () => {
-            appState.toZoneGlobal = elements.targetAutocomplete.value;
-            ui.updateTimelineForTimezones();
-        });
-    }
     // Dark mode toggle
     if (elements.darkToggle) {
         elements.darkToggle.addEventListener('click', theme.toggle);
@@ -578,53 +489,6 @@ const setupEventListeners = () => {
             }
         });
     });
-    // Epoch converter forms
-    const humanToEpochForm = document.getElementById('humanToEpochForm');
-    const epochToHumanForm = document.getElementById('epochToHumanForm');
-    if (humanToEpochForm) {
-        humanToEpochForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const date = document.getElementById('humanDate').value;
-            const time = document.getElementById('humanTime').value;
-            const timezone = document.getElementById('humanTimezone').value;
-            try {
-                const epochTime = epochConverter.humanToEpoch(date, time, timezone);
-                const resultDiv = document.getElementById('humanToEpochResult');
-                const outputDiv = document.getElementById('humanToEpochOutput');
-                if (resultDiv && outputDiv) {
-                    outputDiv.textContent = epochTime.toString();
-                    resultDiv.classList.remove('hidden');
-                }
-            }
-            catch (error) {
-                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-                console.error('Error converting to epoch:', errorMessage);
-                alert('Error: ' + errorMessage);
-            }
-        });
-    }
-    if (epochToHumanForm) {
-        epochToHumanForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const epochInput = document.getElementById('epochInput').value;
-            const timezone = document.getElementById('epochTimezone').value;
-            try {
-                const epoch = parseInt(epochInput, 10);
-                const humanTime = epochConverter.epochToHuman(epoch, timezone);
-                const resultDiv = document.getElementById('epochToHumanResult');
-                const outputDiv = document.getElementById('epochToHumanOutput');
-                if (resultDiv && outputDiv) {
-                    outputDiv.textContent = humanTime;
-                    resultDiv.classList.remove('hidden');
-                }
-            }
-            catch (error) {
-                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-                console.error('Error converting to human time:', errorMessage);
-                alert('Error: ' + errorMessage);
-            }
-        });
-    }
     // Form submission
     if (elements.form) {
         elements.form.addEventListener('submit', async (e) => {
@@ -716,21 +580,6 @@ const initApp = async () => {
         sourceAutocomplete.setOptions(zones);
         targetAutocomplete.setOptions(zones);
         console.log('✅ Autocomplete initialized with', zones.length, 'timezones');
-        // Initialize epoch converter autocomplete
-        const humanTimezoneInput = document.getElementById('humanTimezone');
-        const epochTimezoneInput = document.getElementById('epochTimezone');
-        const humanTimezoneDropdown = document.getElementById('humanTimezoneDropdown');
-        const epochTimezoneDropdown = document.getElementById('epochTimezoneDropdown');
-        if (humanTimezoneInput && humanTimezoneDropdown) {
-            const humanTimezoneAutocomplete = new AutocompleteHandler(humanTimezoneInput, humanTimezoneDropdown);
-            humanTimezoneAutocomplete.setOptions(zones);
-            console.log('✅ Human timezone autocomplete initialized');
-        }
-        if (epochTimezoneInput && epochTimezoneDropdown) {
-            const epochTimezoneAutocomplete = new AutocompleteHandler(epochTimezoneInput, epochTimezoneDropdown);
-            epochTimezoneAutocomplete.setOptions(zones);
-            console.log('✅ Epoch timezone autocomplete initialized');
-        }
         // Debug: Show timezone count on page
         const debugInfo = document.getElementById('debugInfo');
         if (debugInfo) {
