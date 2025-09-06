@@ -1,0 +1,25 @@
+{
+  "name": "timezone-converter",
+  "version": "1.0.0",
+  "description": "Responsive timezone converter with DST awareness using TimeZoneDB",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "build:css": "npx tailwindcss -i ./public/style.css -o ./public/output.css --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["timezone", "converter", "tailwind", "express", "node"],
+  "author": "Sachin",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
+  }
+}

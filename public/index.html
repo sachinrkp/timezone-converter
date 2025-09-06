@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Timezone Converter</title>
+  <link href="output.css" rel="stylesheet" />
+</head>
+<body class="bg-gradient-to-r from-indigo-100 to-blue-100 dark:from-gray-900 dark:to-gray-800 text-gray-800 dark:text-gray-100 min-h-screen flex items-center justify-center transition-colors duration-300">
+  <div class="bg-white dark:bg-gray-900 shadow-xl rounded-lg p-6 w-full max-w-2xl">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-3xl font-bold text-indigo-700 dark:text-indigo-300">🕒 Timezone Converter</h1>
+      <button id="darkToggle" type="button" class="bg-gray-200 dark:bg-gray-700 text-sm px-3 py-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+        Toggle Dark Mode
+      </button>
+    </div>
+
+    <form id="converterForm" class="space-y-4">
+      <!-- From Timezone -->
+      <div>
+        <label for="sourceSearch" class="block font-medium mb-1">From Timezone</label>
+        <input type="text" id="sourceSearch" placeholder="Type city or timezone..." class="w-full p-2 border rounded mb-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100" />
+        <select id="sourceZone" class="w-full p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100"></select>
+      </div>
+
+      <!-- Swap Button -->
+      <div class="flex justify-center my-2">
+        <button id="swapZones" type="button" class="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition">
+          🔄 Swap Timezones
+        </button>
+      </div>
+
+      <!-- To Timezone -->
+      <div>
+        <label for="targetSearch" class="block font-medium mb-1">To Timezone</label>
+        <input type="text" id="targetSearch" placeholder="Type city or timezone..." class="w-full p-2 border rounded mb-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100" />
+        <select id="targetZone" class="w-full p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100"></select>
+      </div>
+
+      <!-- Date and Time Inputs -->
+      <div class="flex gap-4">
+        <div class="flex-1">
+          <label for="date" class="block font-medium mb-1">Date</label>
+          <input type="date" id="date" class="w-full p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100" />
+        </div>
+        <div class="flex-1">
+          <label for="time" class="block font-medium mb-1">Time</label>
+          <input type="time" id="time" class="w-full p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100" />
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="text-center">
+        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">Convert</button>
+      </div>
+    </form>
+
+    <!-- Results Section -->
+    <div id="result" class="mt-6 text-center text-lg font-semibold"></div>
+    <div id="currentTimes" class="mt-4 text-center text-sm"></div>
+    <div id="dstStatus" class="mt-2 text-center text-sm font-medium"></div>
+
+    <!-- Time Sliders (moved below results) -->
+    <div class="mt-6 space-y-4">
+      <div>
+        <label for="sourceSlider" class="block font-medium mb-1">From Timezone Time</label>
+        <input type="range" id="sourceSlider" min="0" max="1439" step="1" class="w-full" disabled />
+        <div id="sourceTimeLabel" class="text-sm mt-1"></div>
+      </div>
+
+      <div>
+        <label for="targetSlider" class="block font-medium mb-1">To Timezone Time</label>
+        <input type="range" id="targetSlider" min="0" max="1439" step="1" class="w-full" disabled />
+        <div id="targetTimeLabel" class="text-sm mt-1"></div>
+      </div>
+
+      <div id="hourDifference" class="text-center text-sm font-medium mt-2"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
