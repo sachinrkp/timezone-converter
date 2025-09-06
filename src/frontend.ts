@@ -1,5 +1,10 @@
 // Frontend application for timezone converter
 
+// Vercel Speed Insights integration
+interface SpeedInsightsWindow {
+  si?: (event: string, properties?: Record<string, any>) => void;
+}
+
 // Types
 interface TimezoneData {
   zoneName: string;
@@ -854,6 +859,15 @@ const setupEventListeners = (): void => {
         if (resultDiv && outputDiv) {
           outputDiv.textContent = epochTime.toString();
           resultDiv.classList.remove('hidden');
+          
+          // Track epoch conversion event
+          const w = window as any;
+          if (w.si) {
+            w.si('epoch_conversion', {
+              type: 'human_to_epoch',
+              timezone: timezone
+            });
+          }
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -879,6 +893,15 @@ const setupEventListeners = (): void => {
         if (resultDiv && outputDiv) {
           outputDiv.textContent = humanTime;
           resultDiv.classList.remove('hidden');
+          
+          // Track epoch conversion event
+          const w = window as any;
+          if (w.si) {
+            w.si('epoch_conversion', {
+              type: 'epoch_to_human',
+              timezone: timezone
+            });
+          }
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -980,23 +1003,34 @@ const setupEventListeners = (): void => {
         toCurrent: utils.formatLocal(Date.now(), toZone),
         dst: false, // This will be calculated in updateResults
       });
+      
       console.log('🔄 ui.updateResults called successfully');
+      
+      // Track timezone conversion event
+      const w = window as any;
+      if (w.si) {
+        w.si('timezone_conversion', {
+          from_zone: fromZone,
+          to_zone: toZone,
+          time_difference: Math.abs(appState.diffMinutesAtInput / 60)
+        });
+      }
       
       console.log('✅ Form submission completed successfully');
     };
-    
+
     // Attach the event listener
     elements.form.addEventListener('submit', handleFormSubmit);
     console.log('✅ Form event listener attached');
-    
+
     // Also add a click handler to the submit button for debugging
     console.log('🔍 Looking for submit button...');
     console.log('🔍 Submit button element:', elements.submitBtn);
     console.log('🔍 Submit button exists:', !!elements.submitBtn);
-    
+
     if (elements.submitBtn) {
       console.log('🔍 Submit button found, adding event listeners...');
-      
+
       elements.submitBtn.addEventListener('click', (e) => {
         console.log('🖱️ Convert button clicked!');
         console.log('🖱️ Event:', e);
@@ -1005,30 +1039,30 @@ const setupEventListeners = (): void => {
         console.log('🖱️ Event target:', e.target);
         console.log('🖱️ Event currentTarget:', e.currentTarget);
       });
-      
+
       // Also add mousedown event for debugging
       elements.submitBtn.addEventListener('mousedown', (e) => {
         console.log('🖱️ Convert button mousedown!');
         console.log('🖱️ Mousedown event:', e);
       });
-      
+
       console.log('✅ Convert button click listener attached');
-      
+
       // Test if button is clickable
       console.log('🧪 Testing button clickability...');
       console.log('🧪 Button disabled:', elements.submitBtn.disabled);
       console.log('🧪 Button type:', elements.submitBtn.type);
       console.log('🧪 Button parent:', elements.submitBtn.parentElement);
-      
+
     } else {
       console.log('❌ Submit button not found!');
       console.log('🔍 Available elements:', Object.keys(elements));
     }
-    
+
     // Add event listener to form inputs to detect changes
     const dateInput = document.getElementById('date') as HTMLInputElement;
     const timeInput = document.getElementById('time') as HTMLInputElement;
-    
+
     if (dateInput) {
       dateInput.addEventListener('change', () => {
         console.log('📅 Date changed to:', dateInput.value);
@@ -1036,7 +1070,7 @@ const setupEventListeners = (): void => {
         console.log('🔍 Form still exists:', !!elements.form);
       });
     }
-    
+
     if (timeInput) {
       timeInput.addEventListener('change', () => {
         console.log('⏰ Time changed to:', timeInput.value);
@@ -1049,29 +1083,29 @@ const setupEventListeners = (): void => {
     if (elements.resetBtn) {
       elements.resetBtn.addEventListener('click', () => {
         console.log('🔄 Reset button clicked!');
-        
+
         // Clear form inputs
         if (elements.sourceAutocomplete) elements.sourceAutocomplete.value = '';
         if (elements.targetAutocomplete) elements.targetAutocomplete.value = '';
-        
+
         const dateInput = document.getElementById('date') as HTMLInputElement;
         const timeInput = document.getElementById('time') as HTMLInputElement;
         if (dateInput) dateInput.value = '';
         if (timeInput) timeInput.value = '';
-        
+
         // Hide results
         if (elements.result) {
           elements.result.classList.add('hidden');
         }
-        
+
         // Clear timeline labels
         if (elements.sourceTimeLabel) {
-          elements.sourceTimeLabel.textContent = 'From Timezone: Select timezone and click Convert';
+          elements.sourceTimeLabel.textContent = 'From Timezone: Select timezone and click Convert';     
         }
         if (elements.targetTimeLabel) {
-          elements.targetTimeLabel.textContent = 'To Timezone: Select timezone and click Convert';
+          elements.targetTimeLabel.textContent = 'To Timezone: Select timezone and click Convert';       
         }
-        
+
         // Clear time difference
         if (elements.timeDifference) {
           elements.timeDifference.textContent = 'Time Difference: 0 hours';
@@ -1079,19 +1113,19 @@ const setupEventListeners = (): void => {
         if (elements.hourDifference) {
           elements.hourDifference.textContent = '🕓 Time Difference: 0 hours';
         }
-        
+
         // Clear epoch times
         const fromEpochElement = document.getElementById('fromEpochTime');
         const toEpochElement = document.getElementById('toEpochTime');
         if (fromEpochElement) fromEpochElement.textContent = 'Loading...';
         if (toEpochElement) toEpochElement.textContent = 'Loading...';
-        
+
         // Reset app state
         appState.inputUtcMs = null;
         appState.fromZoneGlobal = '';
         appState.toZoneGlobal = '';
         appState.diffMinutesAtInput = 0;
-        
+
         console.log('✅ Form reset successfully');
       });
       console.log('✅ Reset button click listener attached');
@@ -1104,86 +1138,122 @@ const setupEventListeners = (): void => {
 // Load current times
 const loadCurrentTimes = async (): Promise<void> => {
   try {
-    const timeData = await api.fetchCurrentTime();
+    // Get user's timezone
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    console.log('🌍 User timezone detected:', userTimezone);
     
-    // Update navigation bar local time (always visible)
-    const navLocalTimeElement = document.getElementById('navLocalTime');
-    if (navLocalTimeElement) {
-      const localDate = new Date(timeData.local);
-      navLocalTimeElement.textContent = localDate.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      });
-    }
-    
-    // Update local time display
-    const localTimeElement = document.getElementById('localTime');
-    if (localTimeElement) {
-      const localDate = new Date(timeData.local);
-      localTimeElement.textContent = localDate.toLocaleString();
-    }
-    
-    // Update mobile local time display
-    const localTimeMobileElement = document.getElementById('localTimeMobile');
-    if (localTimeMobileElement) {
-      const localDate = new Date(timeData.local);
-      localTimeMobileElement.textContent = localDate.toLocaleString();
-    }
-    
-    // Update UTC time display
-    const utcTimeElement = document.getElementById('utcTime');
-    if (utcTimeElement) {
-      const utcDate = new Date(timeData.utc);
-      utcTimeElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-    }
-    
-    // Update mobile UTC time display
-    const utcTimeMobileElement = document.getElementById('utcTimeMobile');
-    if (utcTimeMobileElement) {
-      const utcDate = new Date(timeData.utc);
-      utcTimeMobileElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-    }
-    
-    // Update every second
-    setInterval(async () => {
-      const timeData = await api.fetchCurrentTime();
+    // Update time displays
+    const updateTimes = () => {
+      const now = new Date();
       
-      // Update navigation bar local time
+      // Update navigation bar local time (user's actual timezone) - 24 hour format
+      const navLocalTimeElement = document.getElementById('navLocalTime');
       if (navLocalTimeElement) {
-        const localDate = new Date(timeData.local);
-        navLocalTimeElement.textContent = localDate.toLocaleTimeString('en-US', {
+        const localTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: userTimezone,
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-          hour12: true
-        });
+          hour12: false
+        }).format(now);
+        navLocalTimeElement.textContent = localTime;
       }
       
+      // Update desktop local time display
+      const localTimeElement = document.getElementById('localTime');
       if (localTimeElement) {
-        const localDate = new Date(timeData.local);
-        localTimeElement.textContent = localDate.toLocaleString();
+        const localTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: userTimezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now);
+        localTimeElement.textContent = `${localTime} (${userTimezone})`;
       }
       
+      // Update mobile local time display
+      const localTimeMobileElement = document.getElementById('localTimeMobile');
       if (localTimeMobileElement) {
-        const localDate = new Date(timeData.local);
-        localTimeMobileElement.textContent = localDate.toLocaleString();
+        const localTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: userTimezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now);
+        localTimeMobileElement.textContent = `${localTime} (${userTimezone})`;
       }
       
+      // Update UTC time display - 24 hour format
+      const utcTimeElement = document.getElementById('utcTime');
       if (utcTimeElement) {
-        const utcDate = new Date(timeData.utc);
-        utcTimeElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+        const utcTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'UTC',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now);
+        utcTimeElement.textContent = `${utcTime} UTC`;
       }
       
+      // Update mobile UTC time display
+      const utcTimeMobileElement = document.getElementById('utcTimeMobile');
       if (utcTimeMobileElement) {
-        const utcDate = new Date(timeData.utc);
-        utcTimeMobileElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+        const utcTime = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'UTC',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now);
+        utcTimeMobileElement.textContent = `${utcTime} UTC`;
       }
-    }, 1000);
+    };
+    
+    // Initial update
+    updateTimes();
+    
+    // Update every second
+    setInterval(updateTimes, 1000);
     
   } catch (error) {
     console.error('❌ Failed to load current times:', error);
+    // Fallback to basic Date methods
+    const updateTimesFallback = () => {
+      const now = new Date();
+      
+      const navLocalTimeElement = document.getElementById('navLocalTime');
+      if (navLocalTimeElement) {
+        navLocalTimeElement.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+      }
+      
+      const localTimeElement = document.getElementById('localTime');
+      if (localTimeElement) {
+        localTimeElement.textContent = now.toLocaleString('en-GB');
+      }
+      
+      const utcTimeElement = document.getElementById('utcTime');
+      if (utcTimeElement) {
+        utcTimeElement.textContent = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+      }
+    };
+    
+    updateTimesFallback();
+    setInterval(updateTimesFallback, 1000);
   }
 };
 
