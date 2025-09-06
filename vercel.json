@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "name": "timezone-converter",
+  "builds": [
+    {
+      "src": "src/simple-server.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["public/**"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "src/simple-server.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "src/simple-server.ts"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
