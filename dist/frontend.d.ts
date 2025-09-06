@@ -1,3 +1,6 @@
+interface SpeedInsightsWindow {
+    si?: (event: string, properties?: Record<string, any>) => void;
+}
 interface TimezoneData {
     zoneName: string;
     gmtOffset: number;
