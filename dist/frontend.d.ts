@@ -35,6 +35,7 @@ declare class AppState {
     private updateLoadingState;
 }
 declare const appState: AppState;
+declare let formSubmissionCount: number;
 declare const elements: {
     sourceAutocomplete: HTMLInputElement;
     targetAutocomplete: HTMLInputElement;
@@ -49,11 +50,13 @@ declare const elements: {
     sourceTimeLabel: HTMLDivElement;
     targetTimeLabel: HTMLDivElement;
     hourDifference: HTMLDivElement;
+    timeDifference: HTMLDivElement;
     darkToggle: HTMLButtonElement;
     swapZones: HTMLButtonElement;
     errorMessage: HTMLDivElement;
     loadingSpinner: HTMLDivElement;
     submitBtn: HTMLButtonElement;
+    resetBtn: HTMLButtonElement;
     presetButtons: NodeListOf<HTMLButtonElement>;
 };
 declare const utils: {
@@ -102,6 +105,7 @@ declare const epochConverter: {
 };
 declare const ui: {
     updateResults: (data: ConvertTimeResponse) => void;
+    updateEpochTimes: () => void;
     initSliders: () => void;
     updateTimelineForTimezones: () => void;
     updateSliderLabels: (srcOffsetMinutes: number, tgtOffsetMinutes: number) => void;
