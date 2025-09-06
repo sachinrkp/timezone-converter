@@ -2,7 +2,7 @@
 
 A modern, feature-rich timezone converter web application built with TypeScript, Node.js, and Tailwind CSS. Convert times between any timezones worldwide with an intuitive interface and powerful features.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge)](https://your-vercel-deployment-url.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge)](https://timezone-converter-pi.vercel.app/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/sachinrkp/timezone-converter)
 
 ## ✨ Features
@@ -42,7 +42,7 @@ A modern, feature-rich timezone converter web application built with TypeScript,
 
 ## 🚀 Live Demo
 
-Visit the live application: [https://your-vercel-deployment-url.vercel.app](https://your-vercel-deployment-url.vercel.app)
+Visit the live application: [https://timezone-converter-pi.vercel.app/](https://timezone-converter-pi.vercel.app/)
 
 ## 🛠️ Technology Stack
 
