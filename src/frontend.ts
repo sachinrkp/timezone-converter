@@ -817,11 +817,30 @@ const loadCurrentTimes = async (): Promise<void> => {
   try {
     const timeData = await api.fetchCurrentTime();
     
+    // Update navigation bar local time (always visible)
+    const navLocalTimeElement = document.getElementById('navLocalTime');
+    if (navLocalTimeElement) {
+      const localDate = new Date(timeData.local);
+      navLocalTimeElement.textContent = localDate.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+    }
+    
     // Update local time display
     const localTimeElement = document.getElementById('localTime');
     if (localTimeElement) {
       const localDate = new Date(timeData.local);
       localTimeElement.textContent = localDate.toLocaleString();
+    }
+    
+    // Update mobile local time display
+    const localTimeMobileElement = document.getElementById('localTimeMobile');
+    if (localTimeMobileElement) {
+      const localDate = new Date(timeData.local);
+      localTimeMobileElement.textContent = localDate.toLocaleString();
     }
     
     // Update UTC time display
@@ -831,16 +850,46 @@ const loadCurrentTimes = async (): Promise<void> => {
       utcTimeElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
     }
     
+    // Update mobile UTC time display
+    const utcTimeMobileElement = document.getElementById('utcTimeMobile');
+    if (utcTimeMobileElement) {
+      const utcDate = new Date(timeData.utc);
+      utcTimeMobileElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+    }
+    
     // Update every second
     setInterval(async () => {
       const timeData = await api.fetchCurrentTime();
+      
+      // Update navigation bar local time
+      if (navLocalTimeElement) {
+        const localDate = new Date(timeData.local);
+        navLocalTimeElement.textContent = localDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        });
+      }
+      
       if (localTimeElement) {
         const localDate = new Date(timeData.local);
         localTimeElement.textContent = localDate.toLocaleString();
       }
+      
+      if (localTimeMobileElement) {
+        const localDate = new Date(timeData.local);
+        localTimeMobileElement.textContent = localDate.toLocaleString();
+      }
+      
       if (utcTimeElement) {
         const utcDate = new Date(timeData.utc);
         utcTimeElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+      }
+      
+      if (utcTimeMobileElement) {
+        const utcDate = new Date(timeData.utc);
+        utcTimeMobileElement.textContent = utcDate.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
       }
     }, 1000);
     
