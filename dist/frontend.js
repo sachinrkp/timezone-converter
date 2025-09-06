@@ -594,6 +594,14 @@ const setupEventListeners = () => {
                 if (resultDiv && outputDiv) {
                     outputDiv.textContent = epochTime.toString();
                     resultDiv.classList.remove('hidden');
+                    // Track epoch conversion event
+                    const w = window;
+                    if (w.si) {
+                        w.si('epoch_conversion', {
+                            type: 'human_to_epoch',
+                            timezone: timezone
+                        });
+                    }
                 }
             }
             catch (error) {
@@ -616,6 +624,14 @@ const setupEventListeners = () => {
                 if (resultDiv && outputDiv) {
                     outputDiv.textContent = humanTime;
                     resultDiv.classList.remove('hidden');
+                    // Track epoch conversion event
+                    const w = window;
+                    if (w.si) {
+                        w.si('epoch_conversion', {
+                            type: 'epoch_to_human',
+                            timezone: timezone
+                        });
+                    }
                 }
             }
             catch (error) {
@@ -660,6 +676,15 @@ const setupEventListeners = () => {
                 toCurrent: utils.formatLocal(Date.now(), toZone),
                 dst: false, // This will be calculated in updateResults
             });
+            // Track timezone conversion event
+            const w = window;
+            if (w.si) {
+                w.si('timezone_conversion', {
+                    from_zone: fromZone,
+                    to_zone: toZone,
+                    time_difference: Math.abs(appState.diffMinutesAtInput / 60)
+                });
+            }
         });
     }
 };

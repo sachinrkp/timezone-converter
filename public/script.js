@@ -73,7 +73,7 @@ const elements = {
     targetSlider: document.getElementById('targetSlider'),
     sourceTimeLabel: document.getElementById('sourceTimeLabel'),
     targetTimeLabel: document.getElementById('targetTimeLabel'),
-    timeDifference: document.getElementById('timeDifference'),
+    hourDifference: document.getElementById('hourDifference'),
     darkToggle: document.getElementById('darkToggle'),
     swapZones: document.getElementById('swapZones'),
     errorMessage: document.getElementById('errorMessage'),
@@ -178,20 +178,6 @@ class AutocompleteHandler {
                 this.handleInput();
             }
         });
-        
-        // Make dropdown arrow clickable
-        const dropdownArrow = this.input.parentElement.querySelector('svg');
-        if (dropdownArrow) {
-            dropdownArrow.style.pointerEvents = 'auto';
-            dropdownArrow.style.cursor = 'pointer';
-            dropdownArrow.addEventListener('click', () => {
-                if (this.dropdown.classList.contains('hidden')) {
-                    this.showAllOptions();
-                } else {
-                    this.hideDropdown();
-                }
-            });
-        }
     }
     handleInput() {
         const query = this.input.value.toLowerCase();
@@ -281,12 +267,6 @@ class AutocompleteHandler {
     }
     hideDropdown() {
         this.dropdown.classList.add('hidden');
-    }
-    
-    showAllOptions() {
-        this.filteredOptions = [...this.allOptions];
-        this.selectedIndex = -1;
-        this.renderDropdown();
     }
     setValue(value) {
         this.input.value = value;
@@ -511,12 +491,6 @@ const ui = {
             elements.targetSlider.value = tgtOffset.toString();
             ui.updateSliderLabels(srcOffset, tgtOffset);
         }
-        
-        // Update time difference display
-        const diffHours = (appState.diffMinutesAtInput / 60).toFixed(1);
-        if (elements.timeDifference) {
-            elements.timeDifference.textContent = `Time Difference: ${diffHours} hours`;
-        }
     },
     updateSliderLabels: (srcOffsetMinutes, tgtOffsetMinutes) => {
         if (!appState.inputUtcMs || !elements.sourceTimeLabel || !elements.targetTimeLabel)
@@ -529,8 +503,8 @@ const ui = {
         const srcOff = utils.tzOffsetMinutes(srcUtc, appState.fromZoneGlobal);
         const tgtOff = utils.tzOffsetMinutes(tgtUtc, appState.toZoneGlobal);
         const diffHours = ((tgtOff - srcOff) / 60).toFixed(2);
-        if (elements.timeDifference) {
-            elements.timeDifference.textContent = `Time Difference: ${diffHours} hours`;
+        if (elements.hourDifference) {
+            elements.hourDifference.textContent = `🕓 Time Difference: ${diffHours} hours`;
         }
     },
 };
@@ -620,6 +594,14 @@ const setupEventListeners = () => {
                 if (resultDiv && outputDiv) {
                     outputDiv.textContent = epochTime.toString();
                     resultDiv.classList.remove('hidden');
+                    // Track epoch conversion event
+                    const w = window;
+                    if (w.si) {
+                        w.si('epoch_conversion', {
+                            type: 'human_to_epoch',
+                            timezone: timezone
+                        });
+                    }
                 }
             }
             catch (error) {
@@ -642,6 +624,14 @@ const setupEventListeners = () => {
                 if (resultDiv && outputDiv) {
                     outputDiv.textContent = humanTime;
                     resultDiv.classList.remove('hidden');
+                    // Track epoch conversion event
+                    const w = window;
+                    if (w.si) {
+                        w.si('epoch_conversion', {
+                            type: 'epoch_to_human',
+                            timezone: timezone
+                        });
+                    }
                 }
             }
             catch (error) {
@@ -680,19 +670,21 @@ const setupEventListeners = () => {
             const fromOff = utils.tzOffsetMinutes(appState.inputUtcMs, fromZone);
             const toOff = utils.tzOffsetMinutes(appState.inputUtcMs, toZone);
             appState.diffMinutesAtInput = toOff - fromOff;
-            
-            // Update time difference display
-            const diffHours = (appState.diffMinutesAtInput / 60).toFixed(1);
-            if (elements.timeDifference) {
-                elements.timeDifference.textContent = `Time Difference: ${diffHours} hours`;
-            }
-            
             ui.updateResults({
                 convertedTime: utils.formatLocal(appState.inputUtcMs, toZone),
                 fromCurrent: utils.formatLocal(Date.now(), fromZone),
                 toCurrent: utils.formatLocal(Date.now(), toZone),
                 dst: false, // This will be calculated in updateResults
             });
+            // Track timezone conversion event
+            const w = window;
+            if (w.si) {
+                w.si('timezone_conversion', {
+                    from_zone: fromZone,
+                    to_zone: toZone,
+                    time_difference: Math.abs(appState.diffMinutesAtInput / 60)
+                });
+            }
         });
     }
 };

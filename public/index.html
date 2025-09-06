@@ -4,8 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Timezone Converter</title>
-    <!-- Updated Git user: Sachin Patel -->
+  <title>Timezone Converter</title>
   <link href="output.css" rel="stylesheet">
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -466,6 +465,18 @@
         console.error('❌ Failed to load main script');
       };
       document.head.appendChild(script);
+    </script>
+
+    <!-- Vercel Speed Insights -->
+    <script>
+      // Initialize Vercel Speed Insights
+      (function() {
+        const script = document.createElement('script');
+        script.src = 'https://va.vercel-scripts.com/v1/speed-insights/script.js';
+        script.defer = true;
+        script.dataset.endpoint = 'https://va.vercel-scripts.com/v1/speed-insights/vitals';
+        document.head.appendChild(script);
+      })();
     </script>
 </body>
 
