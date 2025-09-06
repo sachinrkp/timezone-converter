@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "npm run build && node dist/simple-server.js",
-    "build": "tsc && npm run build:css && copy dist\\frontend.js public\\script.js",
+    "build": "tsc && npm run build:css && cp dist/frontend.js public/script.js",
     "build:css": "npx tailwindcss -i ./public/style.css -o ./public/output.css",
     "vercel-build": "npm run build",
     "build:css:watch": "npx tailwindcss -i ./public/style.css -o ./public/output.css --watch",
