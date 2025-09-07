@@ -1,7 +1,7 @@
 {
-  "name": "timezone-converter",
-  "version": "1.0.0",
-  "description": "Responsive timezone converter with DST awareness using TimeZoneDB",
+  "name": "utility-tools",
+  "version": "2.0.0",
+  "description": "Complete productivity suite with timezone conversion, notes management, calendar integration, and more",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -20,11 +20,17 @@
     "type-check": "tsc --noEmit"
   },
   "keywords": [
-    "timezone",
-    "converter",
+    "utility-tools",
+    "productivity",
+    "timezone-converter",
+    "notes-management",
+    "calendar",
+    "authentication",
+    "encryption",
     "tailwind",
     "express",
-    "node"
+    "node",
+    "typescript"
   ],
   "author": "Sachin",
   "license": "ISC",
