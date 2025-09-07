@@ -3,6 +3,7 @@ node_modules/
 
 # User data files - contains sensitive information
 dist/notes-data.json
+dist/encrypted-notes.dat
 data/
 *.json
 !package.json

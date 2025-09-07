@@ -16,6 +16,10 @@
   
   <!-- API Configuration is now handled server-side via environment variables -->
   
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  
   <!-- Custom styles for better date input formatting -->
   <style>
     /* Improve date input appearance with calendar icon */
@@ -137,6 +141,16 @@
             <span id="navLocalTime" class="font-mono">Loading...</span>
           </div>
           
+          <!-- Login/Profile Button -->
+          <button id="loginButton" class="hidden bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-indigo-700 transition">
+            Sign In
+          </button>
+          <button id="profileButton" class="hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <div id="profileAvatar" class="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+              U
+            </div>
+          </button>
+          
           <!-- Hamburger Menu Button -->
           <button id="menuToggle" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,10 +190,174 @@
           </div>
         </div>
       </div>
-    </nav>
+  </nav>
 
-    <!-- Main Content -->
-    <div class="py-8 px-4 sm:px-6 lg:px-8">
+  <!-- Authentication Modal -->
+  <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 id="authModalTitle" class="text-xl font-semibold text-gray-900 dark:text-white">Sign In</h2>
+          <button id="closeAuthModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="p-6">
+          <!-- Login Form -->
+          <form id="loginForm" class="space-y-4">
+            <div>
+              <label for="loginEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+              <input type="email" id="loginEmail" required 
+                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                     placeholder="Enter your email">
+            </div>
+            <div>
+              <label for="loginPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+              <input type="password" id="loginPassword" required 
+                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                     placeholder="Enter your password">
+            </div>
+            <button type="submit" 
+                    class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition">
+              Sign In
+            </button>
+          </form>
+
+          <!-- Register Form -->
+          <form id="registerForm" class="space-y-4 hidden">
+            <div>
+              <label for="registerName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
+              <input type="text" id="registerName" required 
+                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                     placeholder="Enter your full name">
+            </div>
+            <div>
+              <label for="registerEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+              <input type="email" id="registerEmail" required 
+                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                     placeholder="Enter your email">
+            </div>
+            <div>
+              <label for="registerPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+              <input type="password" id="registerPassword" required 
+                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                     placeholder="Create a strong password">
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Must be at least 8 characters with uppercase, lowercase, number, and special character
+              </p>
+            </div>
+            <div>
+              <label for="registerCountry" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
+              <select id="registerCountry" 
+                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white">
+                <option value="US">United States</option>
+                <option value="IN">India</option>
+                <option value="GB">United Kingdom</option>
+                <option value="CA">Canada</option>
+                <option value="AU">Australia</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+                <option value="JP">Japan</option>
+                <option value="CN">China</option>
+                <option value="BR">Brazil</option>
+              </select>
+            </div>
+            <div>
+              <label for="registerTimezone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Timezone</label>
+              <select id="registerTimezone" 
+                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white">
+                <option value="UTC">UTC</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+                <option value="Europe/London">Europe/London</option>
+                <option value="Asia/Kolkata">Asia/Kolkata</option>
+                <option value="Asia/Tokyo">Asia/Tokyo</option>
+                <option value="Australia/Sydney">Australia/Sydney</option>
+              </select>
+            </div>
+            <button type="submit" 
+                    class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition">
+              Create Account
+            </button>
+          </form>
+
+          <!-- Social Login Buttons -->
+          <div class="mt-6">
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
+              </div>
+              <div class="relative flex justify-center text-sm">
+                <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">Or continue with</span>
+              </div>
+            </div>
+
+            <div class="mt-6 grid grid-cols-1 gap-3">
+              <button id="googleLogin" 
+                      class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+                <svg class="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                <span class="ml-2">Continue with Google</span>
+              </button>
+
+            </div>
+          </div>
+
+          <!-- Form Toggle -->
+          <div class="mt-6 text-center">
+            <p id="authToggleText" class="text-sm text-gray-600 dark:text-gray-400">
+              Don't have an account?
+              <button id="authToggle" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-medium">
+                Sign up
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Profile Dropdown -->
+  <div id="userProfileDropdown" class="hidden fixed top-16 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-40 min-w-64">
+    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center space-x-3">
+        <div id="userAvatar" class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center text-white font-semibold">
+          U
+        </div>
+        <div>
+          <p id="userName" class="font-medium text-gray-900 dark:text-white">User Name</p>
+          <p id="userEmail" class="text-sm text-gray-500 dark:text-gray-400">user@example.com</p>
+        </div>
+      </div>
+    </div>
+    <div class="p-2">
+      <a href="/profile.html" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded block">
+        View Profile
+      </a>
+      <a href="/calendar.html" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded block">
+        My Calendar
+      </a>
+      <a href="/notes.html" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded block">
+        My Notes
+      </a>
+      <hr class="my-2 border-gray-200 dark:border-gray-700">
+      <button id="logout" class="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+        Sign Out
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="py-8 px-4 sm:px-6 lg:px-8">
       <!-- Mobile Current Time Display -->
       <div class="lg:hidden mb-4 sm:mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
         <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
@@ -692,6 +870,7 @@
         </div>
       </section>
 
+
       <!-- Footer -->
       <footer
         class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700 text-center text-sm text-gray-500 dark:text-gray-400 max-w-6xl mx-auto">
@@ -737,16 +916,19 @@
       document.head.appendChild(script);
     </script>
 
-    <!-- Vercel Speed Insights -->
+    <!-- Console Filter for CORS Warnings -->
     <script>
-      // Initialize Vercel Speed Insights
-      (function() {
-        const script = document.createElement('script');
-        script.src = 'https://va.vercel-scripts.com/v1/speed-insights/script.js';
-        script.defer = true;
-        script.dataset.endpoint = 'https://va.vercel-scripts.com/v1/speed-insights/vitals';
-        document.head.appendChild(script);
-      })();
+      // Filter out CORS warnings from console
+      const originalConsoleError = console.error;
+      console.error = function(...args) {
+        const message = args.join(' ');
+        if (message.includes('Cross-Origin-Opener-Policy') || 
+            message.includes('window.closed call')) {
+          // Suppress these specific warnings
+          return;
+        }
+        originalConsoleError.apply(console, args);
+      };
     </script>
 </body>
 
