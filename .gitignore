@@ -1,2 +1,9 @@
 node_modules/
 ".env" 
+
+# User data files - contains sensitive information
+dist/notes-data.json
+data/
+*.json
+!package.json
+!package-lock.json
