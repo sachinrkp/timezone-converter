@@ -51,7 +51,6 @@ Asia/Delhi
 Asia/Bangalore
 Asia/Chennai
 Asia/Hyderabad
-Asia/Pune
 Asia/Kolkata
 Australia/Sydney
 Australia/Melbourne

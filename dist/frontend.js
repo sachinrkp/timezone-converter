@@ -115,10 +115,108 @@ const utils = {
             m: parseInt(map.minute, 10),
         };
     },
+    // City to timezone mapping cache
+    cityTimezoneCache: new Map(),
+    // Load city-to-timezone mappings from file
+    async loadCityTimezoneMappings() {
+        try {
+            const response = await fetch('/city-timezone-mapping.txt');
+            if (response.ok) {
+                const text = await response.text();
+                const lines = text.split('\n');
+                lines
+                    .filter(line => line.trim() && !line.startsWith('#'))
+                    .forEach(line => {
+                    const parts = line.split('|');
+                    if (parts.length >= 2) {
+                        const [city, timezone] = parts;
+                        const cityKey = city?.trim().toLowerCase() || '';
+                        const timezoneValue = timezone?.trim() || '';
+                        if (cityKey && timezoneValue) {
+                            this.cityTimezoneCache.set(cityKey, timezoneValue);
+                        }
+                    }
+                });
+                console.log(`✅ Loaded ${this.cityTimezoneCache.size} city-to-timezone mappings`);
+            }
+            else {
+                console.warn('⚠️ Could not load city-timezone mapping file');
+                this.loadDefaultCityMappings();
+            }
+        }
+        catch (error) {
+            console.warn('⚠️ Error loading city-timezone mappings:', error);
+            this.loadDefaultCityMappings();
+        }
+    },
+    // Load default city mappings if file loading fails
+    loadDefaultCityMappings() {
+        const defaultMappings = [
+            // Indian cities
+            ['pune', 'Asia/Kolkata'],
+            ['mumbai', 'Asia/Kolkata'],
+            ['delhi', 'Asia/Kolkata'],
+            ['bangalore', 'Asia/Kolkata'],
+            ['chennai', 'Asia/Kolkata'],
+            ['hyderabad', 'Asia/Kolkata'],
+            ['kolkata', 'Asia/Kolkata'],
+            ['calcutta', 'Asia/Kolkata'],
+            // US cities
+            ['new york', 'America/New_York'],
+            ['chicago', 'America/Chicago'],
+            ['los angeles', 'America/Los_Angeles'],
+            ['denver', 'America/Denver'],
+            ['phoenix', 'America/Phoenix'],
+            // European cities
+            ['london', 'Europe/London'],
+            ['dublin', 'Europe/Dublin'],
+            ['paris', 'Europe/Paris'],
+            ['berlin', 'Europe/Berlin'],
+            ['rome', 'Europe/Rome'],
+            ['madrid', 'Europe/Madrid'],
+            // Asian cities
+            ['tokyo', 'Asia/Tokyo'],
+            ['shanghai', 'Asia/Shanghai'],
+            ['seoul', 'Asia/Seoul'],
+            ['singapore', 'Asia/Singapore'],
+            ['hong kong', 'Asia/Hong_Kong'],
+            // Australian cities
+            ['sydney', 'Australia/Sydney'],
+            ['melbourne', 'Australia/Melbourne'],
+            ['perth', 'Australia/Perth']
+        ];
+        defaultMappings.forEach(([city, timezone]) => {
+            if (city && timezone) {
+                this.cityTimezoneCache.set(city.toLowerCase(), timezone);
+            }
+        });
+        console.log(`✅ Loaded ${this.cityTimezoneCache.size} default city mappings`);
+    },
+    // Normalize timezone names to valid IANA timezone identifiers
+    normalizeTimezone: (timeZone) => {
+        // First, try to find city in our mapping
+        const cityKey = timeZone.toLowerCase().trim();
+        if (utils.cityTimezoneCache.has(cityKey)) {
+            const mappedTimezone = utils.cityTimezoneCache.get(cityKey);
+            console.log(`🗺️ Mapped city "${timeZone}" to timezone "${mappedTimezone}"`);
+            return mappedTimezone || 'UTC';
+        }
+        // Check if it's already a valid IANA timezone
+        try {
+            new Intl.DateTimeFormat('en-GB', { timeZone }).format(new Date());
+            return timeZone;
+        }
+        catch (error) {
+            console.warn(`⚠️ Invalid timezone "${timeZone}", falling back to UTC`);
+            return 'UTC';
+        }
+    },
     tzOffsetMinutes: (utcMs, timeZone) => {
+        // Validate and normalize timezone
+        const normalizedTimeZone = utils.normalizeTimezone(timeZone);
         const d = new Date(utcMs);
         const parts = new Intl.DateTimeFormat('en-GB', {
-            timeZone,
+            timeZone: normalizedTimeZone,
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
@@ -163,6 +261,7 @@ class AutocompleteHandler {
     allOptions = [];
     filteredOptions = [];
     selectedIndex = -1;
+    cityMappings = new Map();
     constructor(input, dropdown) {
         this.input = input;
         this.dropdown = dropdown;
@@ -170,6 +269,9 @@ class AutocompleteHandler {
     }
     setOptions(options) {
         this.allOptions = options;
+    }
+    setCityMappings(mappings) {
+        this.cityMappings = mappings;
     }
     setupEventListeners() {
         this.input.addEventListener('input', () => this.handleInput());
@@ -185,11 +287,19 @@ class AutocompleteHandler {
     }
     handleInput() {
         const query = this.input.value.toLowerCase();
-        const filtered = this.allOptions.filter(option => option.toLowerCase().includes(query) ||
+        // First, filter timezone options
+        const timezoneFiltered = this.allOptions.filter(option => option.toLowerCase().includes(query) ||
             option.toLowerCase().replace(/_/g, ' ').includes(query) ||
             this.getCityName(option).toLowerCase().includes(query));
-        // Remove duplicates
-        this.filteredOptions = [...new Set(filtered)];
+        // Then, add city suggestions from our mapping
+        const citySuggestions = [];
+        this.cityMappings.forEach((timezone, city) => {
+            if (city.toLowerCase().includes(query) && !timezoneFiltered.includes(timezone)) {
+                citySuggestions.push(`${city} (${timezone})`);
+            }
+        });
+        // Combine and remove duplicates
+        this.filteredOptions = [...new Set([...timezoneFiltered, ...citySuggestions])];
         this.selectedIndex = -1;
         this.renderDropdown();
     }
@@ -262,7 +372,19 @@ class AutocompleteHandler {
         });
     }
     selectOption(option) {
-        this.input.value = option;
+        // Handle city suggestions format: "City (Timezone)"
+        if (option.includes(' (')) {
+            const timezoneMatch = option.match(/\(([^)]+)\)/);
+            if (timezoneMatch && timezoneMatch[1]) {
+                this.input.value = timezoneMatch[1]; // Set the timezone
+            }
+            else {
+                this.input.value = option;
+            }
+        }
+        else {
+            this.input.value = option;
+        }
         this.hideDropdown();
         this.input.dispatchEvent(new Event('change'));
     }
@@ -344,28 +466,410 @@ const api = {
 };
 // Epoch converter functions
 const epochConverter = {
-    humanToEpoch: (date, time, timezone) => {
+    humanToEpoch: (date, time) => {
         const [year, month, day] = date.split('-').map(Number);
         const [hours, minutes, seconds] = time.split(':').map(Number);
         if (!year || !month || !day || hours === undefined || minutes === undefined || seconds === undefined) {
             throw new Error('Invalid date or time format');
         }
+        // Create a date string in ISO format
         const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        const tempDate = new Date(dateStr);
-        const utcTime = tempDate.getTime() + (tempDate.getTimezoneOffset() * 60000);
-        const targetOffset = utils.tzOffsetMinutes(utcTime, timezone);
-        const targetTime = new Date(utcTime - (targetOffset * 60000));
-        return Math.floor(targetTime.getTime() / 1000);
+        // Create a Date object - this will be interpreted as local time
+        const localDate = new Date(dateStr);
+        // Simply return the epoch time in seconds
+        return Math.floor(localDate.getTime() / 1000);
     },
-    epochToHuman: (epoch, timezone) => {
+    epochToHuman: (epoch) => {
         const date = new Date(epoch * 1000);
         const options = {
-            timeZone: timezone,
             year: 'numeric', month: '2-digit', day: '2-digit',
             hour: '2-digit', minute: '2-digit', second: '2-digit',
             weekday: 'long'
         };
         return date.toLocaleString('en-GB', options);
+    }
+};
+// Age Calculator functions
+const ageCalculator = {
+    calculateAge: (birthDate) => {
+        const birth = new Date(birthDate);
+        const today = new Date();
+        if (birth > today) {
+            throw new Error('Birth date cannot be in the future');
+        }
+        let years = today.getFullYear() - birth.getFullYear();
+        let months = today.getMonth() - birth.getMonth();
+        let days = today.getDate() - birth.getDate();
+        if (days < 0) {
+            months--;
+            const lastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            days += lastMonth.getDate();
+        }
+        if (months < 0) {
+            years--;
+            months += 12;
+        }
+        const totalDays = Math.floor((today.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24));
+        return { years, months, days, totalDays };
+    },
+    formatAge: (age) => {
+        const parts = [];
+        if (age.years > 0)
+            parts.push(`${age.years} year${age.years !== 1 ? 's' : ''}`);
+        if (age.months > 0)
+            parts.push(`${age.months} month${age.months !== 1 ? 's' : ''}`);
+        if (age.days > 0)
+            parts.push(`${age.days} day${age.days !== 1 ? 's' : ''}`);
+        if (parts.length === 0)
+            return 'Less than a day old';
+        const mainResult = parts.join(', ');
+        return `${mainResult} (${age.totalDays.toLocaleString()} total days)`;
+    }
+};
+// Date Difference Calculator functions
+const dateDifferenceCalculator = {
+    calculateDifference: (startDate, endDate) => {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (start > end) {
+            throw new Error('Start date cannot be after end date');
+        }
+        let years = end.getFullYear() - start.getFullYear();
+        let months = end.getMonth() - start.getMonth();
+        let days = end.getDate() - start.getDate();
+        if (days < 0) {
+            months--;
+            const lastMonth = new Date(end.getFullYear(), end.getMonth(), 0);
+            days += lastMonth.getDate();
+        }
+        if (months < 0) {
+            years--;
+            months += 12;
+        }
+        const totalDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        return { years, months, days, totalDays };
+    },
+    formatDifference: (diff) => {
+        const parts = [];
+        if (diff.years > 0)
+            parts.push(`${diff.years} year${diff.years !== 1 ? 's' : ''}`);
+        if (diff.months > 0)
+            parts.push(`${diff.months} month${diff.months !== 1 ? 's' : ''}`);
+        if (diff.days > 0)
+            parts.push(`${diff.days} day${diff.days !== 1 ? 's' : ''}`);
+        if (parts.length === 0)
+            return 'Same day';
+        const mainResult = parts.join(', ');
+        return `${mainResult} (${diff.totalDays.toLocaleString()} total days)`;
+    }
+};
+// Date Arithmetic Calculator functions
+const dateArithmeticCalculator = {
+    addToDate: (baseDate, years, months, days) => {
+        const date = new Date(baseDate);
+        // Add/subtract years (negative values will subtract)
+        if (years !== 0) {
+            date.setFullYear(date.getFullYear() + years);
+        }
+        // Add/subtract months (negative values will subtract)
+        if (months !== 0) {
+            date.setMonth(date.getMonth() + months);
+        }
+        // Add/subtract days (negative values will subtract)
+        if (days !== 0) {
+            date.setDate(date.getDate() + days);
+        }
+        return date;
+    },
+    formatDate: (date) => {
+        return date.toLocaleDateString('en-GB', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    }
+};
+// Currency Converter functions
+const currencyConverter = {
+    // Currency data loaded from file
+    currencies: [],
+    // Real-time exchange rates from API
+    exchangeRates: {
+        USD: 1.0,
+        EUR: 0.85,
+        GBP: 0.73,
+        JPY: 110.0,
+        INR: 75.0,
+        CAD: 1.25,
+        AUD: 1.35,
+        CHF: 0.92,
+        CNY: 6.45,
+        KRW: 1180.0
+    },
+    lastUpdated: null,
+    // Load currencies from file
+    async loadCurrencies() {
+        try {
+            const response = await fetch('/currencies.txt');
+            if (response.ok) {
+                const text = await response.text();
+                const lines = text.split('\n');
+                this.currencies = lines
+                    .filter(line => line.trim() && !line.startsWith('#'))
+                    .map(line => {
+                    const parts = line.split('|');
+                    if (parts.length >= 4) {
+                        const [code, name, country, flag] = parts;
+                        return {
+                            code: code?.trim() || '',
+                            name: name?.trim() || '',
+                            country: country?.trim() || '',
+                            flag: flag?.trim() || '',
+                            flagClass: this.getFlagClass(code?.trim() || '')
+                        };
+                    }
+                    return null;
+                })
+                    .filter(currency => currency !== null);
+                console.log(`✅ Loaded ${this.currencies.length} currencies from file`);
+                this.populateCurrencyDropdowns();
+            }
+            else {
+                console.warn('⚠️ Could not load currencies file, using default currencies');
+                this.loadDefaultCurrencies();
+            }
+        }
+        catch (error) {
+            console.warn('⚠️ Error loading currencies:', error);
+            this.loadDefaultCurrencies();
+        }
+    },
+    // Get flag CSS class for currency code
+    getFlagClass(currencyCode) {
+        const flagMap = {
+            'USD': 'fi fi-us',
+            'EUR': 'fi fi-eu',
+            'GBP': 'fi fi-gb',
+            'JPY': 'fi fi-jp',
+            'CHF': 'fi fi-ch',
+            'CAD': 'fi fi-ca',
+            'AUD': 'fi fi-au',
+            'NZD': 'fi fi-nz',
+            'INR': 'fi fi-in',
+            'CNY': 'fi fi-cn',
+            'KRW': 'fi fi-kr',
+            'SGD': 'fi fi-sg',
+            'HKD': 'fi fi-hk',
+            'TWD': 'fi fi-tw',
+            'THB': 'fi fi-th',
+            'MYR': 'fi fi-my',
+            'IDR': 'fi fi-id',
+            'PHP': 'fi fi-ph',
+            'VND': 'fi fi-vn',
+            'PKR': 'fi fi-pk',
+            'BDT': 'fi fi-bd',
+            'LKR': 'fi fi-lk',
+            'NPR': 'fi fi-np',
+            'BTN': 'fi fi-bt',
+            'MMK': 'fi fi-mm',
+            'KHR': 'fi fi-kh',
+            'LAK': 'fi fi-la',
+            'AED': 'fi fi-ae',
+            'SAR': 'fi fi-sa',
+            'QAR': 'fi fi-qa',
+            'KWD': 'fi fi-kw',
+            'BHD': 'fi fi-bh',
+            'OMR': 'fi fi-om',
+            'JOD': 'fi fi-jo',
+            'LBP': 'fi fi-lb',
+            'ILS': 'fi fi-il',
+            'TRY': 'fi fi-tr',
+            'EGP': 'fi fi-eg',
+            'ZAR': 'fi fi-za',
+            'NGN': 'fi fi-ng',
+            'KES': 'fi fi-ke',
+            'GHS': 'fi fi-gh',
+            'ETB': 'fi fi-et',
+            'MAD': 'fi fi-ma',
+            'TND': 'fi fi-tn',
+            'DZD': 'fi fi-dz',
+            'NOK': 'fi fi-no',
+            'SEK': 'fi fi-se',
+            'DKK': 'fi fi-dk',
+            'ISK': 'fi fi-is',
+            'PLN': 'fi fi-pl',
+            'CZK': 'fi fi-cz',
+            'HUF': 'fi fi-hu',
+            'RON': 'fi fi-ro',
+            'BGN': 'fi fi-bg',
+            'HRK': 'fi fi-hr',
+            'RSD': 'fi fi-rs',
+            'UAH': 'fi fi-ua',
+            'RUB': 'fi fi-ru',
+            'BYN': 'fi fi-by',
+            'BRL': 'fi fi-br',
+            'ARS': 'fi fi-ar',
+            'CLP': 'fi fi-cl',
+            'COP': 'fi fi-co',
+            'PEN': 'fi fi-pe',
+            'UYU': 'fi fi-uy',
+            'PYG': 'fi fi-py',
+            'BOB': 'fi fi-bo',
+            'VES': 'fi fi-ve',
+            'MXN': 'fi fi-mx',
+            'GTQ': 'fi fi-gt',
+            'HNL': 'fi fi-hn',
+            'NIO': 'fi fi-ni',
+            'CRC': 'fi fi-cr',
+            'PAB': 'fi fi-pa',
+            'DOP': 'fi fi-do',
+            'JMD': 'fi fi-jm',
+            'TTD': 'fi fi-tt',
+            'BBD': 'fi fi-bb',
+            'KZT': 'fi fi-kz',
+            'UZS': 'fi fi-uz',
+            'KGS': 'fi fi-kg',
+            'TJS': 'fi fi-tj',
+            'TMT': 'fi fi-tm',
+            'AFN': 'fi fi-af',
+            'IRR': 'fi fi-ir',
+            'IQD': 'fi fi-iq',
+            'YER': 'fi fi-ye',
+            'SYP': 'fi fi-sy'
+        };
+        return flagMap[currencyCode] || 'fi fi-xx';
+    },
+    // Load default currencies if file loading fails
+    loadDefaultCurrencies() {
+        this.currencies = [
+            { code: 'USD', name: 'US Dollar', country: 'United States', flag: '🇺🇸', flagClass: 'fi fi-us' },
+            { code: 'EUR', name: 'Euro', country: 'European Union', flag: '🇪🇺', flagClass: 'fi fi-eu' },
+            { code: 'GBP', name: 'British Pound', country: 'United Kingdom', flag: '🇬🇧', flagClass: 'fi fi-gb' },
+            { code: 'JPY', name: 'Japanese Yen', country: 'Japan', flag: '🇯🇵', flagClass: 'fi fi-jp' },
+            { code: 'INR', name: 'Indian Rupee', country: 'India', flag: '🇮🇳', flagClass: 'fi fi-in' },
+            { code: 'CAD', name: 'Canadian Dollar', country: 'Canada', flag: '🇨🇦', flagClass: 'fi fi-ca' },
+            { code: 'AUD', name: 'Australian Dollar', country: 'Australia', flag: '🇦🇺', flagClass: 'fi fi-au' },
+            { code: 'CHF', name: 'Swiss Franc', country: 'Switzerland', flag: '🇨🇭', flagClass: 'fi fi-ch' },
+            { code: 'CNY', name: 'Chinese Yuan', country: 'China', flag: '🇨🇳', flagClass: 'fi fi-cn' },
+            { code: 'KRW', name: 'South Korean Won', country: 'South Korea', flag: '🇰🇷', flagClass: 'fi fi-kr' }
+        ];
+        this.populateCurrencyDropdowns();
+    },
+    // Populate currency dropdowns with loaded currencies
+    populateCurrencyDropdowns() {
+        const fromSelect = document.getElementById('fromCurrency');
+        const toSelect = document.getElementById('toCurrency');
+        if (fromSelect && toSelect) {
+            // Clear existing options
+            fromSelect.innerHTML = '';
+            toSelect.innerHTML = '';
+            // Add currency options with flags
+            this.currencies.forEach(currency => {
+                const option1 = document.createElement('option');
+                option1.value = currency.code;
+                option1.innerHTML = `<span class="${currency.flagClass}"></span> ${currency.code} - ${currency.name}`;
+                fromSelect.appendChild(option1);
+                const option2 = document.createElement('option');
+                option2.value = currency.code;
+                option2.innerHTML = `<span class="${currency.flagClass}"></span> ${currency.code} - ${currency.name}`;
+                toSelect.appendChild(option2);
+            });
+            // Set default selections
+            fromSelect.value = 'USD';
+            toSelect.value = 'EUR';
+        }
+    },
+    // Fetch real-time exchange rates from Fixer.io (with fallback)
+    async fetchExchangeRates() {
+        try {
+            // Get API configuration from server
+            let API_KEY = null;
+            try {
+                const configResponse = await fetch('/api/config');
+                if (configResponse.ok) {
+                    const config = await configResponse.json();
+                    API_KEY = config.fixerApiKey;
+                    console.log('🔑 API key status:', config.hasFixerApiKey ? 'Available' : 'Not configured');
+                }
+            }
+            catch (configError) {
+                console.warn('⚠️ Failed to fetch API config:', configError);
+            }
+            if (API_KEY) {
+                // Try Fixer.io first if API key is available
+                try {
+                    // Get all currency codes from our loaded currencies
+                    const currencyCodes = this.currencies.map(c => c.code).join(',');
+                    const response = await fetch(`https://data.fixer.io/api/latest?access_key=${API_KEY}&symbols=${currencyCodes}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            // Fixer.io returns rates relative to EUR by default
+                            // Convert to USD-based rates for consistency
+                            const eurToUsd = data.rates.USD;
+                            this.exchangeRates = {
+                                USD: 1.0
+                            };
+                            // Convert all available rates to USD-based
+                            Object.keys(data.rates).forEach(currency => {
+                                if (currency !== 'USD') {
+                                    this.exchangeRates[currency] = data.rates[currency] / eurToUsd;
+                                }
+                            });
+                            this.lastUpdated = new Date();
+                            console.log(`✅ Exchange rates updated from Fixer.io for ${Object.keys(this.exchangeRates).length} currencies:`, this.lastUpdated);
+                            return;
+                        }
+                    }
+                }
+                catch (fixerError) {
+                    console.warn('⚠️ Fixer.io API failed, trying fallback:', fixerError);
+                }
+            }
+            else {
+                console.log('ℹ️ No Fixer.io API key configured, using fallback API');
+            }
+            // Fallback to free exchangerate-api.com
+            const fallbackResponse = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+            if (!fallbackResponse.ok) {
+                throw new Error('Both Fixer.io and fallback API failed');
+            }
+            const fallbackData = await fallbackResponse.json();
+            this.exchangeRates = fallbackData.rates;
+            this.lastUpdated = new Date();
+            console.log('✅ Exchange rates updated from fallback API:', this.lastUpdated);
+        }
+        catch (error) {
+            console.warn('⚠️ Failed to fetch rates from all sources, using cached rates:', error);
+            // Keep using the existing rates if all APIs fail
+        }
+    },
+    convert: (amount, fromCurrency, toCurrency) => {
+        if (!currencyConverter.exchangeRates[fromCurrency] || !currencyConverter.exchangeRates[toCurrency]) {
+            throw new Error('Unsupported currency');
+        }
+        // Convert to USD first, then to target currency
+        const usdAmount = amount / currencyConverter.exchangeRates[fromCurrency];
+        const convertedAmount = usdAmount * currencyConverter.exchangeRates[toCurrency];
+        const rate = currencyConverter.exchangeRates[toCurrency] / currencyConverter.exchangeRates[fromCurrency];
+        return { convertedAmount, rate };
+    },
+    formatCurrency: (amount, currency) => {
+        const currencySymbols = {
+            USD: '$',
+            EUR: '€',
+            GBP: '£',
+            JPY: '¥',
+            INR: '₹',
+            CAD: 'C$',
+            AUD: 'A$',
+            CHF: 'CHF',
+            CNY: '¥',
+            KRW: '₩'
+        };
+        const symbol = currencySymbols[currency] || currency;
+        return `${symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
 };
 // UI functions
@@ -698,6 +1202,25 @@ const setupEventListeners = () => {
     if (elements.darkToggle) {
         elements.darkToggle.addEventListener('click', theme.toggle);
     }
+    // Mobile dark mode toggle
+    const darkToggleMobile = document.getElementById('darkToggleMobile');
+    if (darkToggleMobile) {
+        darkToggleMobile.addEventListener('click', theme.toggle);
+    }
+    // Mobile menu toggle
+    const menuToggle = document.getElementById('menuToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
+    if (menuToggle && mobileMenu) {
+        menuToggle.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!menuToggle.contains(e.target) && !mobileMenu.contains(e.target)) {
+                mobileMenu.classList.add('hidden');
+            }
+        });
+    }
     // Swap timezones
     if (elements.swapZones) {
         elements.swapZones.addEventListener('click', () => {
@@ -731,9 +1254,8 @@ const setupEventListeners = () => {
             e.preventDefault();
             const date = document.getElementById('humanDate').value;
             const time = document.getElementById('humanTime').value;
-            const timezone = document.getElementById('humanTimezone').value;
             try {
-                const epochTime = epochConverter.humanToEpoch(date, time, timezone);
+                const epochTime = epochConverter.humanToEpoch(date, time);
                 const resultDiv = document.getElementById('humanToEpochResult');
                 const outputDiv = document.getElementById('humanToEpochOutput');
                 if (resultDiv && outputDiv) {
@@ -743,8 +1265,7 @@ const setupEventListeners = () => {
                     const w = window;
                     if (w.si) {
                         w.si('epoch_conversion', {
-                            type: 'human_to_epoch',
-                            timezone: timezone
+                            type: 'human_to_epoch'
                         });
                     }
                 }
@@ -760,10 +1281,9 @@ const setupEventListeners = () => {
         epochToHumanForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const epochInput = document.getElementById('epochInput').value;
-            const timezone = document.getElementById('epochTimezone').value;
             try {
                 const epoch = parseInt(epochInput, 10);
-                const humanTime = epochConverter.epochToHuman(epoch, timezone);
+                const humanTime = epochConverter.epochToHuman(epoch);
                 const resultDiv = document.getElementById('epochToHumanResult');
                 const outputDiv = document.getElementById('epochToHumanOutput');
                 if (resultDiv && outputDiv) {
@@ -773,8 +1293,7 @@ const setupEventListeners = () => {
                     const w = window;
                     if (w.si) {
                         w.si('epoch_conversion', {
-                            type: 'epoch_to_human',
-                            timezone: timezone
+                            type: 'epoch_to_human'
                         });
                     }
                 }
@@ -784,6 +1303,136 @@ const setupEventListeners = () => {
                 console.error('Error converting to human time:', errorMessage);
                 alert('Error: ' + errorMessage);
             }
+        });
+    }
+    // Age Calculator form
+    const ageCalculatorForm = document.getElementById('ageCalculatorForm');
+    if (ageCalculatorForm) {
+        ageCalculatorForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const birthDate = document.getElementById('birthDate').value;
+            try {
+                const age = ageCalculator.calculateAge(birthDate);
+                const formattedAge = ageCalculator.formatAge(age);
+                const resultDiv = document.getElementById('ageResult');
+                const outputDiv = document.getElementById('ageOutput');
+                if (resultDiv && outputDiv) {
+                    outputDiv.textContent = formattedAge;
+                    resultDiv.classList.remove('hidden');
+                }
+            }
+            catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                console.error('Error calculating age:', errorMessage);
+                alert('Error: ' + errorMessage);
+            }
+        });
+    }
+    // Date Difference Calculator form
+    const dateDifferenceForm = document.getElementById('dateDifferenceForm');
+    if (dateDifferenceForm) {
+        dateDifferenceForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            try {
+                const difference = dateDifferenceCalculator.calculateDifference(startDate, endDate);
+                const formattedDifference = dateDifferenceCalculator.formatDifference(difference);
+                const resultDiv = document.getElementById('dateDifferenceResult');
+                const outputDiv = document.getElementById('dateDifferenceOutput');
+                if (resultDiv && outputDiv) {
+                    outputDiv.textContent = formattedDifference;
+                    resultDiv.classList.remove('hidden');
+                }
+            }
+            catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                console.error('Error calculating date difference:', errorMessage);
+                alert('Error: ' + errorMessage);
+            }
+        });
+    }
+    // Date swap button
+    const swapDatesBtn = document.getElementById('swapDates');
+    if (swapDatesBtn) {
+        swapDatesBtn.addEventListener('click', () => {
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            const temp = startDateInput.value;
+            startDateInput.value = endDateInput.value;
+            endDateInput.value = temp;
+        });
+    }
+    // Date Arithmetic Calculator form
+    const dateArithmeticForm = document.getElementById('dateArithmeticForm');
+    if (dateArithmeticForm) {
+        dateArithmeticForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const baseDate = document.getElementById('baseDate').value;
+            const years = parseInt(document.getElementById('yearsInput').value) || 0;
+            const months = parseInt(document.getElementById('monthsInput').value) || 0;
+            const days = parseInt(document.getElementById('daysInput').value) || 0;
+            try {
+                const resultDate = dateArithmeticCalculator.addToDate(baseDate, years, months, days);
+                const formattedDate = dateArithmeticCalculator.formatDate(resultDate);
+                const resultDiv = document.getElementById('dateArithmeticResult');
+                const outputDiv = document.getElementById('dateArithmeticOutput');
+                if (resultDiv && outputDiv) {
+                    outputDiv.textContent = formattedDate;
+                    resultDiv.classList.remove('hidden');
+                }
+            }
+            catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                console.error('Error calculating date arithmetic:', errorMessage);
+                alert('Error: ' + errorMessage);
+            }
+        });
+    }
+    // Currency Converter form
+    const currencyConverterForm = document.getElementById('currencyConverterForm');
+    if (currencyConverterForm) {
+        currencyConverterForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('amount').value);
+            const fromCurrency = document.getElementById('fromCurrency').value;
+            const toCurrency = document.getElementById('toCurrency').value;
+            try {
+                // Fetch latest exchange rates
+                await currencyConverter.fetchExchangeRates();
+                const conversion = currencyConverter.convert(amount, fromCurrency, toCurrency);
+                const formattedAmount = currencyConverter.formatCurrency(conversion.convertedAmount, toCurrency);
+                const formattedOriginal = currencyConverter.formatCurrency(amount, fromCurrency);
+                const rateText = `1 ${fromCurrency} = ${conversion.rate.toFixed(4)} ${toCurrency}`;
+                const resultDiv = document.getElementById('currencyResult');
+                const outputDiv = document.getElementById('currencyOutput');
+                const rateDiv = document.getElementById('currencyRate');
+                const lastUpdatedDiv = document.getElementById('lastUpdated');
+                if (resultDiv && outputDiv && rateDiv && lastUpdatedDiv) {
+                    outputDiv.textContent = `${formattedOriginal} = ${formattedAmount}`;
+                    rateDiv.textContent = rateText;
+                    if (currencyConverter.lastUpdated) {
+                        lastUpdatedDiv.textContent = `Last updated: ${currencyConverter.lastUpdated.toLocaleTimeString()}`;
+                    }
+                    resultDiv.classList.remove('hidden');
+                }
+            }
+            catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                console.error('Error converting currency:', errorMessage);
+                alert('Error: ' + errorMessage);
+            }
+        });
+    }
+    // Currency swap button
+    const swapCurrenciesBtn = document.getElementById('swapCurrencies');
+    if (swapCurrenciesBtn) {
+        swapCurrenciesBtn.addEventListener('click', () => {
+            const fromCurrencySelect = document.getElementById('fromCurrency');
+            const toCurrencySelect = document.getElementById('toCurrency');
+            const temp = fromCurrencySelect.value;
+            fromCurrencySelect.value = toCurrencySelect.value;
+            toCurrencySelect.value = temp;
         });
     }
     // Form submission
@@ -989,14 +1638,14 @@ const loadCurrentTimes = async () => {
             const now = new Date();
             // Update navigation bar local time (user's actual timezone) - 24 hour format
             const navLocalTimeElement = document.getElementById('navLocalTime');
+            const localTime = new Intl.DateTimeFormat('en-GB', {
+                timeZone: userTimezone,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            }).format(now);
             if (navLocalTimeElement) {
-                const localTime = new Intl.DateTimeFormat('en-GB', {
-                    timeZone: userTimezone,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false
-                }).format(now);
                 navLocalTimeElement.textContent = localTime;
             }
             // Update desktop local time display
@@ -1016,18 +1665,22 @@ const loadCurrentTimes = async () => {
             }
             // Update mobile local time display
             const localTimeMobileElement = document.getElementById('localTimeMobile');
+            const localTimeMobileMenuElement = document.getElementById('localTimeMobileMenu');
+            const localTimeFull = new Intl.DateTimeFormat('en-GB', {
+                timeZone: userTimezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            }).format(now);
             if (localTimeMobileElement) {
-                const localTime = new Intl.DateTimeFormat('en-GB', {
-                    timeZone: userTimezone,
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false
-                }).format(now);
-                localTimeMobileElement.textContent = `${localTime} (${userTimezone})`;
+                localTimeMobileElement.textContent = `${localTimeFull} (${userTimezone})`;
+            }
+            if (localTimeMobileMenuElement) {
+                localTimeMobileMenuElement.textContent = localTime;
             }
             // Update UTC time display - 24 hour format
             const utcTimeElement = document.getElementById('utcTime');
@@ -1046,18 +1699,22 @@ const loadCurrentTimes = async () => {
             }
             // Update mobile UTC time display
             const utcTimeMobileElement = document.getElementById('utcTimeMobile');
+            const utcTimeMobileMenuElement = document.getElementById('utcTimeMobileMenu');
+            const utcTimeFull = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'UTC',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            }).format(now);
             if (utcTimeMobileElement) {
-                const utcTime = new Intl.DateTimeFormat('en-GB', {
-                    timeZone: 'UTC',
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false
-                }).format(now);
-                utcTimeMobileElement.textContent = `${utcTime} UTC`;
+                utcTimeMobileElement.textContent = `${utcTimeFull} UTC`;
+            }
+            if (utcTimeMobileMenuElement) {
+                utcTimeMobileMenuElement.textContent = utcTimeFull;
             }
         };
         // Initial update
@@ -1097,6 +1754,12 @@ const initApp = async () => {
         console.log('🔧 Setting up event listeners...');
         setupEventListeners();
         console.log('✅ Event listeners setup completed');
+        // Load currencies first
+        console.log('💰 Loading currencies...');
+        await currencyConverter.loadCurrencies();
+        // Load city-to-timezone mappings
+        console.log('🗺️ Loading city-to-timezone mappings...');
+        await utils.loadCityTimezoneMappings();
         // Load timezones
         console.log('🚀 Initializing timezone loading...');
         const zones = await api.fetchTimezones();
@@ -1106,6 +1769,9 @@ const initApp = async () => {
         // Initialize autocomplete handlers
         const sourceAutocomplete = new AutocompleteHandler(elements.sourceAutocomplete, elements.sourceDropdown);
         const targetAutocomplete = new AutocompleteHandler(elements.targetAutocomplete, elements.targetDropdown);
+        // Set city mappings for autocomplete
+        sourceAutocomplete.setCityMappings(utils.cityTimezoneCache);
+        targetAutocomplete.setCityMappings(utils.cityTimezoneCache);
         console.log('⚙️ Setting autocomplete options...');
         sourceAutocomplete.setOptions(zones);
         targetAutocomplete.setOptions(zones);
@@ -1140,6 +1806,10 @@ const initApp = async () => {
         }
         // Load current times
         await loadCurrentTimes();
+        // Initialize currency converter with real-time rates
+        console.log('💰 Initializing currency converter...');
+        await currencyConverter.fetchExchangeRates();
+        console.log('✅ Currency converter initialized');
         // Set user's timezone as default (but don't trigger conversion)
         const userZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         if (zones.includes(userZone)) {
