@@ -1,6 +1,3 @@
-interface SpeedInsightsWindow {
-    si?: (event: string, properties?: Record<string, any>) => void;
-}
 interface TimezoneData {
     zoneName: string;
     gmtOffset: number;
@@ -69,6 +66,10 @@ declare const utils: {
         h: number;
         m: number;
     };
+    cityTimezoneCache: Map<string, string>;
+    loadCityTimezoneMappings(): Promise<void>;
+    loadDefaultCityMappings(): void;
+    normalizeTimezone: (timeZone: string) => string;
     tzOffsetMinutes: (utcMs: number, timeZone: string) => number;
     wallTimeToUtcMs: (year: number, month: number, day: number, hour: number, minute: number, timeZone: string) => number;
     showError: (message: string) => void;
@@ -80,8 +81,10 @@ declare class AutocompleteHandler {
     private allOptions;
     private filteredOptions;
     private selectedIndex;
+    private cityMappings;
     constructor(input: HTMLInputElement, dropdown: HTMLDivElement);
     setOptions(options: string[]): void;
+    setCityMappings(mappings: Map<string, string>): void;
     private setupEventListeners;
     private handleInput;
     private getCityName;
@@ -103,8 +106,64 @@ declare const api: {
     convertTime(fromZone: string, toZone: string, date: string, time: string): Promise<ConvertTimeResponse | null>;
 };
 declare const epochConverter: {
-    humanToEpoch: (date: string, time: string, timezone: string) => number;
-    epochToHuman: (epoch: number, timezone: string) => string;
+    humanToEpoch: (date: string, time: string) => number;
+    epochToHuman: (epoch: number) => string;
+};
+declare const ageCalculator: {
+    calculateAge: (birthDate: string) => {
+        years: number;
+        months: number;
+        days: number;
+        totalDays: number;
+    };
+    formatAge: (age: {
+        years: number;
+        months: number;
+        days: number;
+        totalDays: number;
+    }) => string;
+};
+declare const dateDifferenceCalculator: {
+    calculateDifference: (startDate: string, endDate: string) => {
+        years: number;
+        months: number;
+        days: number;
+        totalDays: number;
+    };
+    formatDifference: (diff: {
+        years: number;
+        months: number;
+        days: number;
+        totalDays: number;
+    }) => string;
+};
+declare const dateArithmeticCalculator: {
+    addToDate: (baseDate: string, years: number, months: number, days: number) => Date;
+    formatDate: (date: Date) => string;
+};
+interface CurrencyData {
+    code: string;
+    name: string;
+    country: string;
+    flag: string;
+    flagClass: string;
+}
+declare const currencyConverter: {
+    currencies: CurrencyData[];
+    exchangeRates: {
+        [key: string]: number;
+    };
+    lastUpdated: Date | null;
+    loadCurrencies(): Promise<void>;
+    getFlagClass(currencyCode: string): string;
+    loadDefaultCurrencies(): void;
+    populateCurrencyDropdowns(): void;
+    fetchExchangeRates(): Promise<void>;
+    convert: (amount: number, fromCurrency: string, toCurrency: string) => {
+        convertedAmount: number;
+        rate: number;
+    };
+    formatCurrency: (amount: number, currency: string) => string;
 };
 declare const ui: {
     updateResults: (data: ConvertTimeResponse) => void;

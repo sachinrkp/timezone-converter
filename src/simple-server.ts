@@ -66,6 +66,16 @@ app.get('/api/timezones', (req, res) => {
   }
 });
 
+// API configuration endpoint
+app.get('/api/config', (req, res) => {
+  const config = {
+    fixerApiKey: process.env.FIXER_API_KEY || null,
+    hasFixerApiKey: !!process.env.FIXER_API_KEY
+  };
+  
+  res.json(config);
+});
+
 // Mock conversion endpoint
 app.post('/api/convert-time', (req, res) => {
   const { fromZone, toZone, date, time } = req.body;
