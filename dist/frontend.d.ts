@@ -112,6 +112,7 @@ declare const ui: {
     initSliders: () => void;
     updateTimelineForTimezones: () => void;
     updateSliderLabels: (srcOffsetMinutes: number, tgtOffsetMinutes: number) => void;
+    updateEpochTimesForSlider: (srcTimeMs: number, tgtTimeMs: number) => void;
 };
 declare const theme: {
     init: () => void;

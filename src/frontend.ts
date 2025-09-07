@@ -747,24 +747,52 @@ const ui = {
       return;
     }
 
-    // Show the ACTUAL input time and converted time, not slider-based times
-    const inputTime = utils.formatLocal(appState.inputUtcMs, appState.fromZoneGlobal);
-    const convertedTime = utils.formatLocal(appState.inputUtcMs, appState.toZoneGlobal);
+    // Calculate the base time (noon UTC) for slider calculations
+    const baseTime = appState.inputUtcMs;
+    const baseDate = new Date(baseTime);
+    
+    // Set base time to noon UTC for consistent slider calculations
+    const noonUtc = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 12, 0, 0, 0);
+    
+    // Calculate adjusted times based on slider offsets
+    const adjustedSrcTime = new Date(noonUtc.getTime() + (srcOffsetMinutes * 60 * 1000));
+    const adjustedTgtTime = new Date(noonUtc.getTime() + (tgtOffsetMinutes * 60 * 1000));
 
-    elements.sourceTimeLabel.textContent = `From Time (${appState.fromZoneGlobal}): ${inputTime}`;
-    elements.targetTimeLabel.textContent = `To Time (${appState.toZoneGlobal}): ${convertedTime}`;
+    // Format the adjusted times for display
+    const srcTimeFormatted = utils.formatLocal(adjustedSrcTime.getTime(), appState.fromZoneGlobal);
+    const tgtTimeFormatted = utils.formatLocal(adjustedTgtTime.getTime(), appState.toZoneGlobal);
 
-    // Calculate time difference based on actual timezone offsets
-    const fromOff = utils.tzOffsetMinutes(appState.inputUtcMs, appState.fromZoneGlobal);
-    const toOff = utils.tzOffsetMinutes(appState.inputUtcMs, appState.toZoneGlobal);
-    const diffHours = ((toOff - fromOff) / 60).toFixed(1);
+    // Update the labels with slider-adjusted times
+    elements.sourceTimeLabel.textContent = `From Time (${appState.fromZoneGlobal}): ${srcTimeFormatted}`;
+    elements.targetTimeLabel.textContent = `To Time (${appState.toZoneGlobal}): ${tgtTimeFormatted}`;
+
+    // Calculate and display the actual time difference between the slider positions
+    const actualDiffMinutes = tgtOffsetMinutes - srcOffsetMinutes;
+    const actualDiffHours = (actualDiffMinutes / 60).toFixed(1);
     
     if (elements.hourDifference) {
-      elements.hourDifference.textContent = `🕓 Time Difference: ${diffHours} hours`;
+      elements.hourDifference.textContent = `🕓 Time Difference: ${actualDiffHours} hours`;
     }
     
     if (elements.timeDifference) {
-      elements.timeDifference.textContent = `Time Difference: ${diffHours} hours`;
+      elements.timeDifference.textContent = `Time Difference: ${actualDiffHours} hours`;
+    }
+
+    // Update epoch times for the slider-adjusted times
+    ui.updateEpochTimesForSlider(adjustedSrcTime.getTime(), adjustedTgtTime.getTime());
+  },
+
+  updateEpochTimesForSlider: (srcTimeMs: number, tgtTimeMs: number): void => {
+    const fromEpochElement = document.getElementById('fromEpochTime');
+    const toEpochElement = document.getElementById('toEpochTime');
+
+    if (fromEpochElement && toEpochElement) {
+      // Convert milliseconds to seconds for epoch time
+      const srcEpochSeconds = Math.floor(srcTimeMs / 1000);
+      const tgtEpochSeconds = Math.floor(tgtTimeMs / 1000);
+
+      fromEpochElement.textContent = srcEpochSeconds.toString();
+      toEpochElement.textContent = tgtEpochSeconds.toString();
     }
   },
 };
