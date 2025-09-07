@@ -1,6 +1,6 @@
-# 🌍 Timezone Converter
+# 🛠️ Utility Tools - Timezone Converter & More
 
-A modern, feature-rich timezone converter web application built with TypeScript, Node.js, and Tailwind CSS. Convert times between any timezones worldwide with an intuitive interface and powerful features.
+A comprehensive utility web application featuring timezone conversion, currency exchange, date calculations, and more. Built with TypeScript, Node.js, and Tailwind CSS for modern web development.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge)](https://timezone-converter-pi.vercel.app/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/sachinrkp/timezone-converter)
@@ -42,36 +42,46 @@ npm run dev
 ## ✨ Features
 
 ### 🕐 **Core Timezone Conversion**
-- **Smart Timezone Detection**: Automatically detects user's timezone on page load
-- **Comprehensive Timezone Database**: 78+ timezones with city-based search
+- **Smart City-to-Timezone Mapping**: Type any city name (Pune, Mumbai, New York) and get the correct timezone automatically
+- **Comprehensive Timezone Database**: 77+ timezones with intelligent city-based search
 - **Interactive Timeline**: Visual 28-hour timeline with draggable sliders
 - **Real-time Clock Display**: Live local time and UTC time in 24-hour format
 - **DST Awareness**: Automatic daylight saving time calculations
+- **Timezone Validation**: Robust error handling with fallback to UTC
 
 ### 🔍 **Advanced Search & UI**
-- **Intelligent Autocomplete**: Search by city name or timezone (e.g., "Kolkata", "New York")
+- **Intelligent Autocomplete**: Search by city name or timezone (e.g., "Pune", "Kolkata", "New York")
+- **Smart City Suggestions**: Shows both timezone names AND city names in dropdown
 - **Clickable Dropdowns**: Click dropdown arrows to see all available timezones
 - **Quick Conversion Presets**: One-click conversion for popular timezone pairs
 - **Swap Functionality**: Instantly swap source and destination timezones
-- **Duplicate Prevention**: Smart filtering removes duplicate timezone suggestions
+- **Modern Navigation**: Clean hamburger menu with "Utility Tools" branding
 
-### ⏰ **Epoch Time Converter**
-- **Human to Epoch**: Convert human-readable dates to Unix timestamps
-- **Epoch to Human**: Convert Unix timestamps to human-readable format
-- **Timezone-Aware**: All epoch conversions respect selected timezones
+### 💱 **Currency Converter**
+- **100+ World Currencies**: Comprehensive currency database with real flag icons
+- **Real-time Exchange Rates**: Powered by Fixer.io API with fallback to exchangerate-api.com
+- **Professional Flag Icons**: Actual flag images instead of emoji flags
+- **Swap Button**: Instantly swap between currencies
+- **Easy Management**: Currencies stored in `currencies.txt` for easy updates
+
+### 📅 **Date & Time Calculators**
+- **Age Calculator**: Calculate exact age in years, months, and days
+- **Date Difference Calculator**: Find difference between two dates with swap functionality
+- **Date Arithmetic**: Add or subtract days, months, years from any date
+- **Epoch Time Converter**: Convert between human-readable time and Unix timestamps
 - **Input Validation**: Robust error handling and validation
 
 ### 🎨 **User Experience**
 - **Dark/Light Mode**: Toggle between themes with persistent preference
 - **Responsive Design**: Optimized for desktop, tablet, and mobile devices
-- **Desktop Layout**: Side-by-side form and timeline for efficient workflow
-- **Mobile Optimization**: Stacked layout with touch-friendly controls
+- **Modern Navigation**: Clean hamburger menu with compact design
+- **Mobile Optimization**: Improved mobile layout with better spacing
 - **Loading States**: Visual feedback during API calls and processing
 
 ### 📊 **Performance & Analytics**
-- **Vercel Speed Insights**: Performance monitoring and analytics
-- **Custom Event Tracking**: Tracks timezone and epoch conversions
 - **Optimized Loading**: Efficient caching and minimized bundle size
+- **Smart Caching**: City-to-timezone mappings cached for performance
+- **Error Handling**: Graceful fallbacks for API failures
 - **PWA Ready**: Fast loading with service worker support
 
 ## 🚀 Live Demo
@@ -88,7 +98,8 @@ Visit the live application: [https://timezone-converter-pi.vercel.app/](https://
 ### Backend
 - **Node.js** - JavaScript runtime for server-side operations
 - **Express.js** - Minimal web framework for API endpoints
-- **File-based Storage** - Efficient timezone data management
+- **File-based Storage** - Efficient timezone and currency data management
+- **Environment Variables** - Secure API key management with dotenv
 
 ### DevOps & Deployment
 - **Vercel** - Serverless deployment platform
@@ -162,7 +173,16 @@ npm run vercel-build
 ```
 
 ### Environment Setup
-The application works out of the box with no additional configuration required. All timezone data is included in the repository.
+The application works out of the box with no additional configuration required. All timezone and currency data is included in the repository.
+
+#### Optional: Currency Exchange API Setup
+For real-time currency exchange rates, you can set up a Fixer.io API key:
+
+1. **Get API Key**: Visit [fixer.io](https://fixer.io) and get a free API key
+2. **Create .env file**: Add `FIXER_API_KEY=your_api_key_here`
+3. **Restart server**: The app will automatically use real-time exchange rates
+
+See [FIXER_API_SETUP.md](FIXER_API_SETUP.md) for detailed setup instructions.
 
 ## 🏗️ Project Structure
 
@@ -177,10 +197,14 @@ timezone-converter/
 │   ├── style.css              # Source CSS for Tailwind
 │   ├── output.css             # Compiled Tailwind CSS (auto-generated)
 │   ├── favicon.svg            # Custom stopwatch icon
-│   └── timezones.txt          # Timezone database file
+│   ├── timezones.txt          # Timezone database file
+│   ├── currencies.txt         # Currency database with flag mappings
+│   └── city-timezone-mapping.txt # City-to-timezone mapping file
 ├── 📁 dist/                   # Compiled TypeScript output
 │   ├── frontend.js            # Compiled frontend code
 │   └── simple-server.js       # Compiled server code
+├── 📄 .env                    # Environment variables (API keys)
+├── 📄 FIXER_API_SETUP.md      # API setup documentation
 ├── 📄 package.json            # Node.js dependencies and scripts
 ├── 📄 tsconfig.json           # TypeScript configuration
 ├── 📄 tailwind.config.js      # Tailwind CSS configuration
@@ -253,6 +277,15 @@ Converts time between timezones (if implemented).
 ```
 
 ## 🎯 Key Features Explained
+
+### Smart City-to-Timezone Mapping
+The application features an intelligent city-to-timezone mapping system that allows users to enter any city name and automatically determines the correct timezone:
+
+- **City Input**: Type "Pune", "Mumbai", "New York", "London" - any city name
+- **Automatic Mapping**: The app maps cities to their correct timezone (e.g., Pune → Asia/Kolkata)
+- **Smart Autocomplete**: Shows both city names and timezone identifiers in dropdown
+- **Fallback System**: If city not found, gracefully falls back to UTC
+- **Easy Extension**: Add new cities by editing `city-timezone-mapping.txt`
 
 ### Smart Timezone Detection
 The application automatically detects the user's timezone using the `Intl.DateTimeFormat().resolvedOptions().timeZone` API, ensuring accurate local time display regardless of the user's location.
