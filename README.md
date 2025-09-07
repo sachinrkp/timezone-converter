@@ -1,6 +1,6 @@
-# 🛠️ Utility Tools - Timezone Converter & More
+# 🛠️ Utility Tools - Complete Productivity Suite
 
-A comprehensive utility web application featuring timezone conversion, currency exchange, date calculations, and more. Built with TypeScript, Node.js, and Tailwind CSS for modern web development.
+A comprehensive utility web application featuring timezone conversion, currency exchange, date calculations, **user authentication**, **encrypted notes management**, **calendar integration**, and more. Built with TypeScript, Node.js, Tailwind CSS, and Firebase for modern web development.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge)](https://timezone-converter-pi.vercel.app/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/sachinrkp/timezone-converter)
@@ -41,6 +41,29 @@ npm run dev
 
 ## ✨ Features
 
+### 🔐 **User Authentication & Security**
+- **Firebase Authentication**: Secure login with Google, Microsoft, and email/password
+- **User Profiles**: Personal profile management with photo upload
+- **Session Management**: Persistent login sessions across browser tabs
+- **Data Encryption**: AES-256-GCM encryption for all user notes and sensitive data
+- **Privacy Protection**: User data is encrypted and stored securely
+
+### 📝 **Advanced Notes Management**
+- **OneNote-Style Structure**: Hierarchical organization with Notebooks → Sections → Pages
+- **Password Protection**: Section-level password protection for sensitive notes
+- **Auto-Lock Security**: Sections automatically lock after 3 minutes of inactivity
+- **Rich Text Editing**: Full-featured text editor with formatting options
+- **Cloud Synchronization**: Real-time sync across all devices
+- **Context Menu Actions**: Right-click to rename, move, or delete notebooks/sections/pages
+- **Color-Coded Organization**: Visual hierarchy with color coding for easy navigation
+
+### 📅 **Calendar Integration**
+- **Personal Calendar**: Full calendar view with event management
+- **Holiday Integration**: Country-specific holidays and observances
+- **Google Calendar Sync**: Import events from Google Calendar
+- **Event Management**: Create, edit, and delete calendar events
+- **Timezone-Aware**: All events respect user's timezone settings
+
 ### 🕐 **Core Timezone Conversion**
 - **Smart City-to-Timezone Mapping**: Type any city name (Pune, Mumbai, New York) and get the correct timezone automatically
 - **Comprehensive Timezone Database**: 77+ timezones with intelligent city-based search
@@ -55,7 +78,7 @@ npm run dev
 - **Clickable Dropdowns**: Click dropdown arrows to see all available timezones
 - **Quick Conversion Presets**: One-click conversion for popular timezone pairs
 - **Swap Functionality**: Instantly swap source and destination timezones
-- **Modern Navigation**: Clean hamburger menu with "Utility Tools" branding
+- **Modern Navigation**: Clean profile dropdown with user management
 
 ### 💱 **Currency Converter**
 - **100+ World Currencies**: Comprehensive currency database with real flag icons
@@ -74,15 +97,17 @@ npm run dev
 ### 🎨 **User Experience**
 - **Dark/Light Mode**: Toggle between themes with persistent preference
 - **Responsive Design**: Optimized for desktop, tablet, and mobile devices
-- **Modern Navigation**: Clean hamburger menu with compact design
+- **Modern Navigation**: Clean profile dropdown with user management
 - **Mobile Optimization**: Improved mobile layout with better spacing
 - **Loading States**: Visual feedback during API calls and processing
+- **Context Menus**: Right-click functionality for all interactive elements
 
 ### 📊 **Performance & Analytics**
 - **Optimized Loading**: Efficient caching and minimized bundle size
 - **Smart Caching**: City-to-timezone mappings cached for performance
 - **Error Handling**: Graceful fallbacks for API failures
 - **PWA Ready**: Fast loading with service worker support
+- **Debug Tools**: Comprehensive debugging utilities for development
 
 ## 🚀 Live Demo
 
@@ -94,22 +119,35 @@ Visit the live application: [https://timezone-converter-pi.vercel.app/](https://
 - **TypeScript** - Type-safe JavaScript with modern ES6+ features
 - **Tailwind CSS** - Utility-first CSS framework for rapid UI development
 - **Vanilla JavaScript** - No framework dependencies for optimal performance
+- **Firebase SDK** - Authentication and real-time database integration
+- **Crypto-JS** - Client-side encryption for data security
 
 ### Backend
 - **Node.js** - JavaScript runtime for server-side operations
 - **Express.js** - Minimal web framework for API endpoints
+- **Firebase Admin SDK** - Server-side authentication and database management
+- **AES-256-GCM Encryption** - Military-grade encryption for user data
 - **File-based Storage** - Efficient timezone and currency data management
 - **Environment Variables** - Secure API key management with dotenv
+
+### Authentication & Security
+- **Firebase Authentication** - Google, Microsoft, and email/password login
+- **JWT Tokens** - Secure session management
+- **AES-256-GCM** - End-to-end encryption for sensitive data
+- **Password Hashing** - bcrypt for secure password storage
+- **Session Management** - Persistent login across browser sessions
 
 ### DevOps & Deployment
 - **Vercel** - Serverless deployment platform
 - **GitHub Actions** - Automated CI/CD pipeline
 - **npm** - Package management and build scripts
+- **Environment Variables** - Secure configuration management
 
 ### Development Tools
 - **TypeScript Compiler** - Type checking and ES5 compilation
 - **Tailwind CLI** - CSS processing and optimization
 - **Git** - Version control and collaboration
+- **Debug Utilities** - Comprehensive debugging tools for development
 
 ## 📦 Installation & Setup
 
@@ -173,16 +211,43 @@ npm run vercel-build
 ```
 
 ### Environment Setup
-The application works out of the box with no additional configuration required. All timezone and currency data is included in the repository.
+
+#### Required: Firebase Setup
+For user authentication and data storage, Firebase configuration is required:
+
+1. **Create Firebase Project**: Visit [Firebase Console](https://console.firebase.google.com/)
+2. **Enable Authentication**: Enable Google, Microsoft, and email/password providers
+3. **Get Configuration**: Copy your Firebase config from Project Settings
+4. **Create .env file**: Add Firebase configuration variables
+5. **Set Encryption Key**: Generate a master encryption key for data security
+
+See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for detailed setup instructions.
+
+#### Required: Encryption Setup
+For secure data storage, encryption configuration is required:
+
+1. **Generate Master Key**: Create a 32-character encryption key
+2. **Add to .env**: Set `MASTER_ENCRYPTION_KEY=your_32_character_key`
+3. **Restart server**: Encryption will be automatically enabled
+
+See [ENCRYPTION_SETUP.md](ENCRYPTION_SETUP.md) for detailed setup instructions.
 
 #### Optional: Currency Exchange API Setup
 For real-time currency exchange rates, you can set up a Fixer.io API key:
 
 1. **Get API Key**: Visit [fixer.io](https://fixer.io) and get a free API key
-2. **Create .env file**: Add `FIXER_API_KEY=your_api_key_here`
+2. **Add to .env**: Add `FIXER_API_KEY=your_api_key_here`
 3. **Restart server**: The app will automatically use real-time exchange rates
 
 See [FIXER_API_SETUP.md](FIXER_API_SETUP.md) for detailed setup instructions.
+
+#### Security Considerations
+- **Data Encryption**: All user notes are encrypted using AES-256-GCM
+- **API Keys**: Store all sensitive keys in `.env` file (never commit to git)
+- **Firebase Rules**: Configure proper security rules for your Firebase project
+- **HTTPS**: Always use HTTPS in production for secure data transmission
+
+See [SECURITY_NOTES.md](SECURITY_NOTES.md) for comprehensive security guidelines.
 
 ## 🏗️ Project Structure
 
@@ -190,9 +255,17 @@ See [FIXER_API_SETUP.md](FIXER_API_SETUP.md) for detailed setup instructions.
 timezone-converter/
 ├── 📁 src/                    # TypeScript source files
 │   ├── frontend.ts            # Main frontend application logic
-│   └── simple-server.ts       # Express.js server implementation
+│   ├── simple-server.ts       # Express.js server implementation
+│   ├── 📁 firebase/           # Firebase configuration and auth
+│   │   ├── config.ts          # Firebase configuration
+│   │   └── auth.ts            # Authentication logic
+│   └── 📁 services/           # Backend services
+│       └── encryptionService.ts # AES-256-GCM encryption service
 ├── 📁 public/                 # Static assets and compiled files
-│   ├── index.html             # Main HTML file
+│   ├── index.html             # Main HTML file (public access)
+│   ├── profile.html           # User profile page (authenticated)
+│   ├── calendar.html          # Calendar page (authenticated)
+│   ├── notes.html             # Notes management page (authenticated)
 │   ├── script.js              # Compiled JavaScript (auto-generated)
 │   ├── style.css              # Source CSS for Tailwind
 │   ├── output.css             # Compiled Tailwind CSS (auto-generated)
@@ -202,8 +275,14 @@ timezone-converter/
 │   └── city-timezone-mapping.txt # City-to-timezone mapping file
 ├── 📁 dist/                   # Compiled TypeScript output
 │   ├── frontend.js            # Compiled frontend code
-│   └── simple-server.js       # Compiled server code
-├── 📄 .env                    # Environment variables (API keys)
+│   ├── simple-server.js       # Compiled server code
+│   ├── notes-data.json        # User notes data (encrypted)
+│   └── encrypted-notes.dat    # Encrypted user data storage
+├── 📄 .env                    # Environment variables (API keys, encryption keys)
+├── 📄 debug-utils.js          # Debugging utilities for development
+├── 📄 FIREBASE_SETUP.md       # Firebase setup documentation
+├── 📄 ENCRYPTION_SETUP.md     # Encryption setup guide
+├── 📄 SECURITY_NOTES.md       # Security considerations
 ├── 📄 FIXER_API_SETUP.md      # API setup documentation
 ├── 📄 package.json            # Node.js dependencies and scripts
 ├── 📄 tsconfig.json           # TypeScript configuration
@@ -545,24 +624,46 @@ app.get('/api/custom-endpoint', (req, res) => {
 });
 ```
 
+## 🆕 Recent Updates
+
+### ✅ **v2.0.0 - Complete Productivity Suite** (Latest)
+- **🔐 User Authentication**: Firebase integration with Google, Microsoft, and email/password login
+- **📝 Advanced Notes**: OneNote-style hierarchical organization with encryption
+- **📅 Calendar Integration**: Full calendar with holiday integration and Google Calendar sync
+- **🔒 Data Security**: AES-256-GCM encryption for all user data
+- **🎨 Enhanced UI**: Profile management, context menus, and mobile optimization
+- **⚡ Performance**: Optimized code with debugging utilities and better error handling
+
+### ✅ **v1.5.0 - Smart Features**
+- **🌍 Smart City Mapping**: Intelligent city-to-timezone detection
+- **💱 Currency Converter**: 100+ currencies with real-time exchange rates
+- **📊 Date Calculators**: Age, difference, and arithmetic calculations
+- **🎨 Modern UI**: Dark/light mode with responsive design
+
+### ✅ **v1.0.0 - Core Features**
+- **🕐 Timezone Conversion**: Basic timezone conversion with timeline
+- **🔍 Search & Autocomplete**: City and timezone search functionality
+- **📱 Mobile Support**: Responsive design for all devices
+
 ## 🔮 Future Roadmap
 
 ### 🚀 Upcoming Features
-- [ ] **Calendar Integration**: Add calendar event timezone conversion
-- [ ] **Meeting Scheduler**: Find optimal meeting times across timezones
+- [ ] **AI Integration**: Smart note suggestions and timezone recommendations
+- [ ] **Team Collaboration**: Shared notebooks and real-time collaboration
+- [ ] **Advanced Calendar**: Recurring events and meeting optimization
 - [ ] **Time Zone Map**: Interactive world map with timezone visualization
 - [ ] **Notification System**: Alerts for specific times in different zones
-- [ ] **API Rate Limiting**: Enhanced API security and usage limits
-- [ ] **Offline Support**: PWA with offline timezone conversion
-- [ ] **Browser Extension**: Quick timezone conversion from browser toolbar
+- [ ] **Offline Support**: PWA with offline timezone conversion and notes
 - [ ] **Mobile Apps**: Native iOS and Android applications
+- [ ] **API Integration**: Third-party calendar and note-taking app sync
 
 ### 🎯 Community Requests
-- [ ] **Bulk Conversion**: Convert multiple times at once
+- [ ] **Bulk Operations**: Convert multiple times and manage multiple notes at once
 - [ ] **Time Zone History**: Track timezone changes over time
 - [ ] **Custom Themes**: More color schemes and layouts
-- [ ] **Export Options**: Save conversions as CSV/PDF
+- [ ] **Export Options**: Save conversions and notes as CSV/PDF
 - [ ] **Widget Embedding**: Embed converter in other websites
+- [ ] **Voice Notes**: Audio recording and transcription for notes
 
 ## 📊 Project Statistics
 
