@@ -2,8 +2,8 @@
 
 A comprehensive utility web application featuring timezone conversion, currency exchange, date calculations, **user authentication**, **encrypted notes management**, **calendar integration**, and more. Built with TypeScript, Node.js, Tailwind CSS, and Firebase for modern web development.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge)](https://timezone-converter-pi.vercel.app/)
-[![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/sachinrkp/timezone-converter)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge)](https://utility-tools.vercel.app/)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/sachinrkp/utility-tools)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -11,15 +11,15 @@ A comprehensive utility web application featuring timezone conversion, currency 
 ## 🚀 Quick Start
 
 ### For Users
-- **🌐 [Try Live Demo](https://timezone-converter-pi.vercel.app/)** - No installation required
+- **🌐 [Try Live Demo](https://utility-tools.vercel.app/)** - No installation required
 - **📱 Mobile Friendly** - Works on all devices
 - **⚡ Fast & Lightweight** - Optimized for performance
 
 ### For Developers
 ```bash
 # Clone the repository
-git clone https://github.com/sachinrkp/timezone-converter.git
-cd timezone-converter
+git clone https://github.com/sachinrkp/utility-tools.git
+cd utility-tools
 
 # Install dependencies
 npm install
@@ -32,7 +32,7 @@ npm run dev
 
 ### For Contributors
 1. **Fork** this repository
-2. **Clone** your fork: `git clone https://github.com/YOUR-USERNAME/timezone-converter.git`
+2. **Clone** your fork: `git clone https://github.com/YOUR-USERNAME/utility-tools.git`
 3. **Create** a feature branch: `git checkout -b feature/amazing-feature`
 4. **Make** your changes and test them
 5. **Commit** your changes: `git commit -m "Add amazing feature"`
@@ -111,7 +111,7 @@ npm run dev
 
 ## 🚀 Live Demo
 
-Visit the live application: [https://timezone-converter-pi.vercel.app/](https://timezone-converter-pi.vercel.app/)
+Visit the live application: [https://utility-tools.vercel.app/](https://utility-tools.vercel.app/)
 
 ## 🛠️ Technology Stack
 
@@ -159,8 +159,8 @@ Visit the live application: [https://timezone-converter-pi.vercel.app/](https://
 ### Option 1: Clone for Development/Contribution
 ```bash
 # Clone the repository
-git clone https://github.com/sachinrkp/timezone-converter.git
-cd timezone-converter
+git clone https://github.com/sachinrkp/utility-tools.git
+cd utility-tools
 
 # Install all dependencies
 npm install
@@ -178,11 +178,11 @@ npm run dev
 ```bash
 # 1. Fork the repository on GitHub (click the Fork button)
 # 2. Clone your fork
-git clone https://github.com/YOUR-USERNAME/timezone-converter.git
-cd timezone-converter
+git clone https://github.com/YOUR-USERNAME/utility-tools.git
+cd utility-tools
 
 # 3. Add upstream remote (to sync with original repo)
-git remote add upstream https://github.com/sachinrkp/timezone-converter.git
+git remote add upstream https://github.com/sachinrkp/utility-tools.git
 
 # 4. Install dependencies
 npm install
@@ -212,47 +212,43 @@ npm run vercel-build
 
 ### Environment Setup
 
-#### Required: Firebase Setup
-For user authentication and data storage, Firebase configuration is required:
+#### Quick Start (No Configuration Required)
+The application works out of the box with mock authentication and local data storage. No external services are required for basic functionality.
+
+#### Optional: Enhanced Features Setup
+
+##### Firebase Authentication (Optional)
+For real user authentication and cloud data storage:
 
 1. **Create Firebase Project**: Visit [Firebase Console](https://console.firebase.google.com/)
-2. **Enable Authentication**: Enable Google, Microsoft, and email/password providers
+2. **Enable Authentication**: Enable Google and email/password providers
 3. **Get Configuration**: Copy your Firebase config from Project Settings
 4. **Create .env file**: Add Firebase configuration variables
-5. **Set Encryption Key**: Generate a master encryption key for data security
 
-See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for detailed setup instructions.
-
-#### Required: Encryption Setup
-For secure data storage, encryption configuration is required:
+##### Encryption Setup (Optional)
+For enhanced data security:
 
 1. **Generate Master Key**: Create a 32-character encryption key
 2. **Add to .env**: Set `MASTER_ENCRYPTION_KEY=your_32_character_key`
 3. **Restart server**: Encryption will be automatically enabled
 
-See [ENCRYPTION_SETUP.md](ENCRYPTION_SETUP.md) for detailed setup instructions.
-
-#### Optional: Currency Exchange API Setup
-For real-time currency exchange rates, you can set up a Fixer.io API key:
+##### Currency Exchange API (Optional)
+For real-time currency exchange rates:
 
 1. **Get API Key**: Visit [fixer.io](https://fixer.io) and get a free API key
 2. **Add to .env**: Add `FIXER_API_KEY=your_api_key_here`
 3. **Restart server**: The app will automatically use real-time exchange rates
 
-See [FIXER_API_SETUP.md](FIXER_API_SETUP.md) for detailed setup instructions.
-
 #### Security Considerations
-- **Data Encryption**: All user notes are encrypted using AES-256-GCM
+- **Data Encryption**: All user notes are encrypted using AES-256-GCM (when enabled)
 - **API Keys**: Store all sensitive keys in `.env` file (never commit to git)
-- **Firebase Rules**: Configure proper security rules for your Firebase project
+- **Local Storage**: Data is stored locally by default for privacy
 - **HTTPS**: Always use HTTPS in production for secure data transmission
-
-See [SECURITY_NOTES.md](SECURITY_NOTES.md) for comprehensive security guidelines.
 
 ## 🏗️ Project Structure
 
 ```
-timezone-converter/
+utility-tools/
 ├── 📁 src/                    # TypeScript source files
 │   ├── frontend.ts            # Main frontend application logic
 │   ├── simple-server.ts       # Express.js server implementation
@@ -425,11 +421,11 @@ We welcome contributions from developers of all skill levels! This project is pe
 ```bash
 # Fork the repository on GitHub (click the Fork button)
 # Then clone your fork
-git clone https://github.com/YOUR-USERNAME/timezone-converter.git
-cd timezone-converter
+git clone https://github.com/YOUR-USERNAME/utility-tools.git
+cd utility-tools
 
 # Add upstream remote to sync with original repo
-git remote add upstream https://github.com/sachinrkp/timezone-converter.git
+git remote add upstream https://github.com/sachinrkp/utility-tools.git
 ```
 
 #### Step 2: Setup Development Environment
@@ -525,9 +521,9 @@ npm run lint  # if available
 
 ### 🆘 Need Help?
 
-- **Questions**: Open a [GitHub Discussion](https://github.com/sachinrkp/timezone-converter/discussions)
-- **Bugs**: Report issues in [GitHub Issues](https://github.com/sachinrkp/timezone-converter/issues)
-- **Feature Requests**: Suggest new features in [GitHub Issues](https://github.com/sachinrkp/timezone-converter/issues)
+- **Questions**: Open a [GitHub Discussion](https://github.com/sachinrkp/utility-tools/discussions)
+- **Bugs**: Report issues in [GitHub Issues](https://github.com/sachinrkp/utility-tools/issues)
+- **Feature Requests**: Suggest new features in [GitHub Issues](https://github.com/sachinrkp/utility-tools/issues)
 - **Code Review**: Ask for help in your Pull Request
 
 ### 🏆 Recognition
@@ -685,8 +681,8 @@ app.get('/api/custom-endpoint', (req, res) => {
 
 ## 📞 Support & Contact
 
-- **🐛 Bug Reports**: [GitHub Issues](https://github.com/sachinrkp/timezone-converter/issues)
-- **💡 Feature Requests**: [GitHub Discussions](https://github.com/sachinrkp/timezone-converter/discussions)
+- **🐛 Bug Reports**: [GitHub Issues](https://github.com/sachinrkp/utility-tools/issues)
+- **💡 Feature Requests**: [GitHub Discussions](https://github.com/sachinrkp/utility-tools/discussions)
 - **📧 Email**: [sachinrkp07@gmail.com](mailto:sachinrkp07@gmail.com)
 - **💼 LinkedIn**: [linkedin.com/in/sachinrkp](https://linkedin.com/in/sachinrkp)
 - **💻 GitHub**: [github.com/sachinrkp](https://github.com/sachinrkp)
