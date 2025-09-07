@@ -5,7 +5,7 @@ const getFirebaseConfig = () => {
     if (typeof window !== 'undefined' && window.firebaseConfig) {
         return window.firebaseConfig;
     }
-    // Fallback config
+    // Fallback config for development
     return {
         apiKey: "demo-api-key",
         authDomain: "demo-project.firebaseapp.com",
@@ -15,7 +15,7 @@ const getFirebaseConfig = () => {
         appId: "1:123456789:web:demo"
     };
 };
-// Initialize Firebase
+// Initialize Firebase with config
 const app = initializeApp(getFirebaseConfig());
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);

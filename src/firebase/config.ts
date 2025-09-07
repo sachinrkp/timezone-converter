@@ -7,7 +7,7 @@ const getFirebaseConfig = () => {
     return (window as any).firebaseConfig;
   }
   
-  // Fallback config
+  // Fallback config for development
   return {
     apiKey: "demo-api-key",
     authDomain: "demo-project.firebaseapp.com",
@@ -18,7 +18,7 @@ const getFirebaseConfig = () => {
   };
 };
 
-// Initialize Firebase
+// Initialize Firebase with config
 const app = initializeApp(getFirebaseConfig());
 
 // Initialize Firebase Authentication and get a reference to the service
