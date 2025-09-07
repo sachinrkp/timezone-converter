@@ -1,0 +1,2018 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Notes - Utility Tools</title>
+  <link href="output.css" rel="stylesheet">
+  <!-- Flag Icons CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css">
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="https://api.iconify.design/mdi/timer-outline.svg?color=%234f46e5&width=32&height=32">
+  <link rel="apple-touch-icon" href="https://api.iconify.design/mdi/timer-outline.svg?color=%234f46e5&width=180&height=180">
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  
+  <!-- Crypto-JS for encryption -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  
+  <!-- Custom styles -->
+  <style>
+    .notebook-sidebar {
+      min-height: calc(100vh - 4rem);
+      border-right: 1px solid #e5e7eb;
+    }
+    
+    .section-sidebar {
+      min-height: calc(100vh - 4rem);
+      border-right: 1px solid #e5e7eb;
+    }
+    
+    .page-content {
+      min-height: calc(100vh - 4rem);
+    }
+    
+    .notebook-item, .section-item, .page-item {
+      transition: all 0.2s ease-in-out;
+      cursor: pointer;
+    }
+    
+    .notebook-item:hover, .section-item:hover, .page-item:hover {
+      background-color: #f3f4f6;
+    }
+    
+    .notebook-item.active, .section-item.active, .page-item.active {
+      background-color: #dbeafe;
+      border-right: 3px solid #3b82f6;
+    }
+    
+    .encrypted-content {
+      background: linear-gradient(45deg, #f3f4f6 25%, transparent 25%), 
+                  linear-gradient(-45deg, #f3f4f6 25%, transparent 25%), 
+                  linear-gradient(45deg, transparent 75%, #f3f4f6 75%), 
+                  linear-gradient(-45deg, transparent 75%, #f3f4f6 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      color: transparent;
+      text-shadow: 0 0 8px rgba(0,0,0,0.5);
+    }
+    
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      padding: 12px 20px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
+    }
+    
+    .toast.show {
+      transform: translateX(0);
+    }
+    
+    .toast.success {
+      background-color: #10b981;
+    }
+    
+    .toast.error {
+      background-color: #ef4444;
+    }
+    
+    .toast.info {
+      background-color: #3b82f6;
+    }
+    
+    .toast.warning {
+      background-color: #f59e0b;
+    }
+    
+    @media (max-width: 768px) {
+      .notebook-sidebar, .section-sidebar {
+        min-height: auto;
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+        position: fixed;
+        top: 64px;
+        left: 0;
+        z-index: 40;
+        height: calc(100vh - 64px);
+        overflow-y: auto;
+        box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+      }
+      
+      .page-content {
+        min-height: auto;
+        margin-left: 0;
+      }
+      
+      .mobile-hidden {
+        display: none;
+      }
+      
+      .mobile-visible {
+        display: block;
+      }
+      
+      .lock-toggle-btn {
+        font-size: 14px;
+        padding: 2px 4px;
+      }
+    }
+    
+    @media (min-width: 769px) {
+      .mobile-hidden {
+        display: block;
+      }
+      
+      .mobile-visible {
+        display: none;
+      }
+      
+      .notebook-sidebar, .section-sidebar {
+        position: static;
+        height: auto;
+        box-shadow: none;
+      }
+      
+      .page-content {
+        margin-left: 0;
+      }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+  <!-- Navigation -->
+  <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center">
+          <a href="/" class="flex items-center space-x-2">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <span class="text-white font-bold text-sm">UT</span>
+            </div>
+            <span class="text-xl font-bold text-gray-800 dark:text-gray-200">Utility Tools</span>
+          </a>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+          <!-- Cloud Sync Status -->
+          <div id="syncStatus" class="flex items-center space-x-2 text-sm">
+            <div id="syncIndicator" class="w-2 h-2 rounded-full bg-gray-400"></div>
+            <span id="syncText" class="text-gray-500">Offline</span>
+          </div>
+
+          <!-- User Profile Dropdown -->
+          <div class="relative" id="userProfileSection" style="display: none;">
+            <button id="profileButton" class="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition">
+              <div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
+                <span id="userInitials" class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">SP</span>
+              </div>
+              <span id="userName" class="hidden sm:block">Sachin Patel</span>
+            </button>
+            
+            <!-- Profile Dropdown -->
+            <div id="userProfileDropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hidden z-50">
+              <div class="py-1">
+                <a href="/profile.html" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                  👤 My Profile
+                </a>
+                <a href="/calendar.html" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                  📅 My Calendar
+                </a>
+                <a href="/notes.html" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                  📝 My Notes
+                </a>
+                <hr class="my-1 border-gray-200 dark:border-gray-700">
+                <button id="logoutButton" class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                  🚪 Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="flex h-screen">
+    <!-- Notebook Sidebar -->
+    <div class="notebook-sidebar w-64 bg-white dark:bg-gray-800 p-4 mobile-hidden" id="notebookSidebar">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <button id="backToMainBtn" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hidden">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <button id="collapseNotebooks" class="mobile-visible text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Notebooks</h2>
+          </div>
+          <button id="addNotebookBtn" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+            + Add
+          </button>
+        </div>
+      <div id="notebooksList" class="space-y-2">
+        <!-- Notebooks will be populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Section Sidebar -->
+    <div class="section-sidebar w-64 bg-white dark:bg-gray-800 p-4 mobile-hidden" id="sectionSidebar">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <button id="backToNotebooksBtn" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hidden">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <button id="collapseSections" class="mobile-visible text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Sections</h2>
+          </div>
+          <button id="addSectionBtn" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+            + Add
+          </button>
+        </div>
+      <div id="sectionsList" class="space-y-2">
+        <!-- Sections will be populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Pages Sidebar -->
+    <div class="section-sidebar w-64 bg-white dark:bg-gray-800 p-4 mobile-hidden" id="pagesSidebar" style="display: none;">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <button id="backToSectionsBtn" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hidden">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <button id="collapsePages" class="mobile-visible text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Pages</h2>
+          </div>
+          <button id="addPageBtnSidebar" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+            + Add
+          </button>
+        </div>
+      <div id="pagesList" class="space-y-2">
+        <!-- Pages will be populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Page Content -->
+    <div class="page-content flex-1 bg-white dark:bg-gray-800 p-6">
+      <div id="welcomeView" class="text-center py-12">
+        <div class="w-24 h-24 mx-auto mb-4 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
+          <span class="text-4xl">📝</span>
+        </div>
+        <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-2">Welcome to Your Notes</h2>
+        <p class="text-gray-600 dark:text-gray-400">Select a notebook and section to start taking notes</p>
+      </div>
+
+      <div id="pageView" class="hidden">
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center space-x-4">
+            <button id="backToSections" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hidden">
+              ← Back to Pages
+            </button>
+            <h2 id="currentPageTitle" class="text-2xl font-semibold text-gray-800 dark:text-gray-200">Page Title</h2>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="addPageBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+              + Add Page
+            </button>
+            <button id="savePageBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div id="pageEditor" class="space-y-4">
+          <input type="text" id="pageTitleInput" placeholder="Page title..."
+            class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-xl font-semibold">
+          <textarea id="pageContentInput" placeholder="Start writing your notes..."
+            class="w-full h-96 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"></textarea>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Navigation -->
+  <div class="mobile-visible fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+    <div class="flex justify-around">
+      <button id="mobileNotebooksBtn" class="flex flex-col items-center space-y-1 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition">
+        <span class="text-xl">📚</span>
+        <span class="text-xs">Notebooks</span>
+      </button>
+      <button id="mobileSectionsBtn" class="flex flex-col items-center space-y-1 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition">
+        <span class="text-xl">📁</span>
+        <span class="text-xs">Sections</span>
+      </button>
+      <button id="mobilePagesBtn" class="flex flex-col items-center space-y-1 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition">
+        <span class="text-xl">📄</span>
+        <span class="text-xs">Pages</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Add Notebook Modal -->
+  <div id="addNotebookModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+      <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Add New Notebook</h3>
+      <form id="addNotebookForm" class="space-y-4">
+        <div>
+          <label for="notebookName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notebook Name</label>
+          <input type="text" id="notebookName" required
+            class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button type="button" id="cancelNotebook" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
+            Cancel
+          </button>
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+            Create
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Section Modal -->
+  <div id="addSectionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+      <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Add New Section</h3>
+      <form id="addSectionForm" class="space-y-4">
+        <div>
+          <label for="sectionName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Section Name</label>
+          <input type="text" id="sectionName" required
+            class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+        </div>
+        <div class="flex items-center space-x-4">
+          <label class="flex items-center">
+            <input type="checkbox" id="sectionIsPrivate" class="mr-2">
+            <span class="text-sm text-gray-700 dark:text-gray-300">Password Protected</span>
+          </label>
+        </div>
+        <div id="sectionPasswordSection" class="hidden">
+          <label for="sectionPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+          <input type="password" id="sectionPassword" placeholder="Enter password for this section"
+            class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button type="button" id="cancelSection" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
+            Cancel
+          </button>
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+            Create
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Page Modal -->
+  <div id="addPageModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+      <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Add New Page</h3>
+      <form id="addPageForm" class="space-y-4">
+        <div>
+          <label for="pageName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Page Name</label>
+          <input type="text" id="pageName" required
+            class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button type="button" id="cancelPage" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
+            Cancel
+          </button>
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+            Create
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Password Modal -->
+  <div id="passwordModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+      <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Enter Password</h3>
+      <form id="passwordForm" class="space-y-4">
+        <div>
+          <label for="passwordInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+          <input type="password" id="passwordInput" required
+            class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button type="button" id="cancelPassword" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
+            Cancel
+          </button>
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+            Unlock
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div id="contextMenu" class="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 z-50 hidden">
+    <div class="context-menu-item px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" data-action="rename">
+      <span class="text-green-600 dark:text-green-400">✏️ Rename</span>
+    </div>
+    <div class="context-menu-item px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" data-action="delete">
+      <span class="text-red-600 dark:text-red-400">🗑️ Delete</span>
+    </div>
+    <div class="context-menu-item px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" data-action="move">
+      <span class="text-blue-600 dark:text-blue-400">📁 Move to...</span>
+    </div>
+  </div>
+
+  <!-- Move Modal -->
+  <div id="moveModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 max-w-full mx-4">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Move Item</h3>
+      <div id="moveModalContent">
+        <!-- Content will be populated by JavaScript -->
+      </div>
+      <div class="flex justify-end space-x-2 mt-4">
+        <button id="cancelMoveBtn" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+          Cancel
+        </button>
+        <button id="confirmMoveBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">
+          Move
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rename Modal -->
+  <div id="renameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden" onclick="event.stopPropagation()">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 max-w-full mx-4" onclick="event.stopPropagation()">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Rename Item</h3>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          New Name
+        </label>
+        <input type="text" id="renameInput" 
+               class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+               placeholder="Enter new name...">
+      </div>
+      <div class="flex justify-end space-x-2 mt-4">
+        <button id="cancelRenameBtn" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+          Cancel
+        </button>
+        <button id="confirmRenameBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
+          Rename
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="script.js"></script>
+  <script>
+    // Notes page specific functionality
+    class NotesPage {
+      constructor() {
+        this.currentUser = null;
+        this.notebooks = [];
+        this.sections = [];
+        this.pages = [];
+        this.currentNotebook = null;
+        this.currentSection = null;
+        this.currentPage = null;
+        this.unlockedSections = new Set();
+        this.sectionLockTimers = new Map(); // Track auto-lock timers
+        this.initializeAuth();
+        this.setupEventListeners();
+      }
+
+      async initializeAuth() {
+        if (typeof firebase !== 'undefined') {
+          // Initialize Firebase first
+          try {
+            const configResponse = await fetch('/api/config');
+            const config = await configResponse.json();
+            
+            const firebaseConfig = {
+              apiKey: config.firebaseApiKey || "AIzaSyC9UxLaYTPW...",
+              authDomain: config.firebaseAuthDomain || "utility-tools-12345.firebaseapp.com",
+              projectId: config.firebaseProjectId || "utility-tools-12345",
+              storageBucket: config.firebaseStorageBucket || "utility-tools-12345.appspot.com",
+              messagingSenderId: config.firebaseMessagingSenderId || "123456789",
+              appId: config.firebaseAppId || "1:123456789:web:abcdef123456"
+            };
+
+            if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+              firebase.initializeApp(firebaseConfig);
+            }
+          } catch (error) {
+            console.error('Firebase config error:', error);
+          }
+
+          firebase.auth().onAuthStateChanged(async (user) => {
+            if (user) {
+              this.currentUser = user;
+              this.authToken = await user.getIdToken();
+              this.updateUI();
+              await this.loadData();
+              this.renderNotebooks();
+            } else {
+              window.location.href = '/';
+            }
+          });
+        } else {
+          window.location.href = '/';
+        }
+      }
+
+      updateUI() {
+        const userProfileSection = document.getElementById('userProfileSection');
+        
+        if (this.currentUser) {
+          userProfileSection.style.display = 'block';
+          
+          document.getElementById('userName').textContent = this.currentUser.displayName || 'User';
+          document.getElementById('userInitials').textContent = this.getInitials(this.currentUser.displayName || this.currentUser.email);
+        } else {
+          userProfileSection.style.display = 'none';
+        }
+      }
+
+      getInitials(name) {
+        if (!name) return 'U';
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      }
+
+      setupEventListeners() {
+        // Notebook events
+        document.getElementById('addNotebookBtn').addEventListener('click', () => this.showAddNotebookModal());
+        document.getElementById('addNotebookForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.addNotebook();
+        });
+        document.getElementById('cancelNotebook').addEventListener('click', () => this.hideAddNotebookModal());
+
+        // Section events
+        document.getElementById('addSectionBtn').addEventListener('click', () => this.showAddSectionModal());
+        document.getElementById('addSectionForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.addSection();
+        });
+        document.getElementById('cancelSection').addEventListener('click', () => this.hideAddSectionModal());
+        document.getElementById('sectionIsPrivate').addEventListener('change', (e) => {
+          const passwordSection = document.getElementById('sectionPasswordSection');
+          if (e.target.checked) {
+            passwordSection.classList.remove('hidden');
+          } else {
+            passwordSection.classList.add('hidden');
+          }
+        });
+
+        // Page events
+        document.getElementById('addPageBtn').addEventListener('click', () => this.showAddPageModal());
+        document.getElementById('addPageBtnSidebar').addEventListener('click', () => this.showAddPageModal());
+        document.getElementById('addPageForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.addPage();
+        });
+        document.getElementById('cancelPage').addEventListener('click', () => this.hideAddPageModal());
+        document.getElementById('savePageBtn').addEventListener('click', () => this.savePage());
+
+        // Password events
+        document.getElementById('passwordForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.unlockSection();
+        });
+        document.getElementById('cancelPassword').addEventListener('click', () => this.hidePasswordModal());
+
+        // Mobile navigation
+        document.getElementById('mobileNotebooksBtn').addEventListener('click', () => this.toggleMobileView('notebooks'));
+        document.getElementById('mobileSectionsBtn').addEventListener('click', () => this.toggleMobileView('sections'));
+        document.getElementById('mobilePagesBtn').addEventListener('click', () => this.toggleMobileView('pages'));
+
+        // Collapse buttons for mobile
+        document.getElementById('collapseNotebooks').addEventListener('click', () => this.collapseSidebar('notebooks'));
+        document.getElementById('collapseSections').addEventListener('click', () => this.collapseSidebar('sections'));
+        document.getElementById('collapsePages').addEventListener('click', () => this.collapseSidebar('pages'));
+
+        // Back to sections button
+        document.getElementById('backToSections').addEventListener('click', () => this.backToSections());
+        
+        // Back navigation buttons
+        document.getElementById('backToMainBtn').addEventListener('click', () => this.backToMain());
+        document.getElementById('backToNotebooksBtn').addEventListener('click', () => this.backToNotebooks());
+        document.getElementById('backToSectionsBtn').addEventListener('click', () => this.backToSections());
+
+        
+        // Profile dropdown
+        document.getElementById('profileButton').addEventListener('click', () => this.toggleProfileDropdown());
+        document.getElementById('logoutButton').addEventListener('click', () => this.logout());
+
+        // Context menu events
+        document.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
+        document.addEventListener('click', (e) => {
+          // Only hide context menu if clicking outside of it and not on modals
+          if (!e.target.closest('#contextMenu') && 
+              !e.target.closest('#renameModal') && 
+              !e.target.closest('#moveModal') &&
+              !e.target.closest('#addNotebookModal') &&
+              !e.target.closest('#addSectionModal') &&
+              !e.target.closest('#addPageModal') &&
+              !e.target.closest('#passwordModal')) {
+            this.hideContextMenu();
+          }
+        });
+        document.getElementById('contextMenu').addEventListener('click', (e) => this.handleContextMenuAction(e));
+        
+        // Move modal events
+        document.getElementById('cancelMoveBtn').addEventListener('click', () => this.hideMoveModal());
+        document.getElementById('confirmMoveBtn').addEventListener('click', () => this.confirmMove());
+        
+        // Rename modal events
+        document.getElementById('cancelRenameBtn').addEventListener('click', () => this.hideRenameModal());
+        const confirmRenameBtn = document.getElementById('confirmRenameBtn');
+        if (confirmRenameBtn) {
+          confirmRenameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Get context data from the modal dataset
+            const modal = document.getElementById('renameModal');
+            const contextType = modal.dataset.contextType;
+            const contextId = modal.dataset.contextId;
+            
+            if (contextType && contextId) {
+              this.confirmRenameWithData(contextType, contextId);
+            }
+          });
+        }
+      }
+
+      async loadData() {
+        if (!this.currentUser) return;
+        
+        this.updateSyncStatus('loading', 'Loading...');
+        
+        try {
+          // Try to load from cloud storage first
+          const response = await fetch(`/api/notes?uid=${this.currentUser.uid}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${this.authToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            this.notebooks = data.notebooks || [];
+            this.sections = data.sections || [];
+            this.pages = data.pages || [];
+            console.log('✅ Data loaded from cloud storage');
+            this.updateSyncStatus('synced', 'Synced');
+          } else {
+            // Fallback to localStorage
+            this.loadFromLocalStorage();
+          }
+        } catch (error) {
+          console.error('Error loading data from cloud:', error);
+          // Fallback to localStorage
+          this.loadFromLocalStorage();
+        }
+      }
+
+      loadFromLocalStorage() {
+        const savedData = localStorage.getItem(`userNotesData_${this.currentUser?.uid}`);
+        if (savedData) {
+          const data = JSON.parse(savedData);
+          this.notebooks = data.notebooks || [];
+          this.sections = data.sections || [];
+          this.pages = data.pages || [];
+          console.log('✅ Data loaded from localStorage');
+          this.updateSyncStatus('offline', 'Offline');
+        } else {
+          this.updateSyncStatus('offline', 'No Data');
+        }
+      }
+
+      updateSyncStatus(status, text) {
+        const indicator = document.getElementById('syncIndicator');
+        const textElement = document.getElementById('syncText');
+        
+        if (indicator && textElement) {
+          // Remove all status classes
+          indicator.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-gray-400');
+          
+          switch (status) {
+            case 'synced':
+              indicator.classList.add('bg-green-500');
+              textElement.textContent = text;
+              break;
+            case 'loading':
+              indicator.classList.add('bg-yellow-500');
+              textElement.textContent = text;
+              break;
+            case 'error':
+              indicator.classList.add('bg-red-500');
+              textElement.textContent = text;
+              break;
+            case 'offline':
+            default:
+              indicator.classList.add('bg-gray-400');
+              textElement.textContent = text;
+              break;
+          }
+        }
+      }
+
+      async saveData() {
+        if (!this.currentUser) return;
+        
+        const data = {
+          notebooks: this.notebooks,
+          sections: this.sections,
+          pages: this.pages,
+          uid: this.currentUser.uid
+        };
+        
+        this.updateSyncStatus('loading', 'Saving...');
+        
+        try {
+          // Save to cloud storage
+          const response = await fetch('/api/notes', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${this.authToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+          });
+          
+          if (response.ok) {
+            console.log('✅ Data saved to cloud storage');
+            this.updateSyncStatus('synced', 'Synced');
+          } else {
+            console.error('Failed to save to cloud storage');
+            this.updateSyncStatus('error', 'Sync Failed');
+          }
+        } catch (error) {
+          console.error('Error saving to cloud:', error);
+          this.updateSyncStatus('error', 'Sync Failed');
+        }
+        
+        // Also save to localStorage as backup
+        localStorage.setItem(`userNotesData_${this.currentUser.uid}`, JSON.stringify(data));
+      }
+
+      encrypt(text, password) {
+        return CryptoJS.AES.encrypt(text, password).toString();
+      }
+
+      decrypt(encryptedText, password) {
+        try {
+          const bytes = CryptoJS.AES.decrypt(encryptedText, password);
+          return bytes.toString(CryptoJS.enc.Utf8);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      renderNotebooks() {
+        const notebooksList = document.getElementById('notebooksList');
+        
+        notebooksList.innerHTML = this.notebooks.map(notebook => {
+          const notebookColor = this.getNotebookColor(notebook.id);
+          const isActive = notebook.id === this.currentNotebook?.id;
+          
+          return `
+            <div class="notebook-item p-3 rounded-lg cursor-pointer transition-colors ${isActive ? 'active border-r-4' : 'hover:bg-gray-100'}" 
+                 data-notebook-id="${notebook.id}"
+                 data-context-type="notebook"
+                 style="background-color: ${isActive ? notebookColor : 'transparent'}; border-color: ${notebookColor};">
+              <div class="flex items-center justify-between">
+                <span class="font-medium" style="color: ${isActive ? 'white' : '#1f2937'}">${notebook.name}</span>
+                <span class="text-xs text-gray-500">${this.getNotebookPageCount(notebook.id)}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.notebook-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const notebookId = parseInt(item.dataset.notebookId);
+            this.selectNotebook(notebookId);
+          });
+        });
+      }
+
+      renderSections() {
+        const sectionsList = document.getElementById('sectionsList');
+        const notebookSections = this.sections.filter(s => s.notebookId === this.currentNotebook?.id);
+        
+        sectionsList.innerHTML = notebookSections.map(section => {
+          const isUnlocked = this.unlockedSections.has(section.id);
+          const lockIcon = section.isPrivate ? (isUnlocked ? '🔓' : '🔒') : '';
+          const lockClass = section.isPrivate && !isUnlocked ? 'opacity-50' : '';
+          const sectionColor = this.getSectionColor(section.id);
+          const isActive = section.id === this.currentSection?.id;
+          
+          return `
+            <div class="section-item p-3 rounded-lg cursor-pointer transition-colors ${lockClass} ${isActive ? 'active border-r-4' : 'hover:bg-gray-100'}" 
+                 data-section-id="${section.id}"
+                 data-context-type="section"
+                 style="background-color: ${isActive ? sectionColor : 'transparent'}; border-color: ${sectionColor};">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <span class="font-medium" style="color: ${isActive ? '#1f2937' : '#374151'}">${section.name}</span>
+                  ${section.isPrivate ? `<button class="lock-toggle-btn text-xs p-1 rounded hover:bg-gray-200" data-section-id="${section.id}">${lockIcon}</button>` : ''}
+                </div>
+                <div class="flex items-center space-x-1">
+                  <span class="text-xs text-gray-500">${this.getSectionPageCount(section.id)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.section-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const sectionId = parseInt(item.dataset.sectionId);
+            this.selectSection(sectionId);
+          });
+        });
+
+        // Add lock toggle functionality
+        document.querySelectorAll('.lock-toggle-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const sectionId = parseInt(btn.dataset.sectionId);
+            this.toggleSectionLock(sectionId);
+          });
+        });
+      }
+
+      renderPages() {
+        const pagesList = document.getElementById('pagesList');
+        let pagesToShow = [];
+        
+        if (this.currentSection) {
+          // Show pages from current section only
+          pagesToShow = this.pages.filter(p => p.sectionId === this.currentSection.id);
+        } else {
+          // Show all pages from all notebooks, excluding protected sections
+          const unlockedSections = this.sections.filter(s => !s.isPrivate || this.unlockedSections.has(s.id));
+          const unlockedSectionIds = unlockedSections.map(s => s.id);
+          pagesToShow = this.pages.filter(p => unlockedSectionIds.includes(p.sectionId));
+        }
+        
+        pagesList.innerHTML = pagesToShow.map(page => {
+          const section = this.sections.find(s => s.id === page.sectionId);
+          const notebook = this.notebooks.find(n => n.id === section?.notebookId);
+          const pageColor = this.getPageColor(page.id);
+          
+          return `
+            <div class="page-item p-3 rounded-lg cursor-pointer transition-colors ${page.id === this.currentPage?.id ? 'active border-r-4' : 'hover:bg-gray-100'}" 
+                 data-page-id="${page.id}"
+                 data-context-type="page"
+                 style="background-color: ${page.id === this.currentPage?.id ? pageColor : 'transparent'}; border-color: ${pageColor};">
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col">
+                  <span class="font-medium text-gray-800 dark:text-gray-200">${page.title}</span>
+                  ${!this.currentSection ? `<span class="text-xs text-gray-500">${notebook?.name} → ${section?.name}</span>` : ''}
+                </div>
+                <span class="text-xs text-gray-500">${this.formatDate(page.updatedAt)}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.page-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const pageId = parseInt(item.dataset.pageId);
+            this.selectPage(pageId);
+          });
+        });
+      }
+
+      formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        });
+      }
+
+      getNotebookColor(notebookId) {
+        if (!notebookId) return '#e5e7eb';
+        const colors = [
+          '#1f2937', // Dark gray
+          '#7c2d12', // Dark red
+          '#14532d', // Dark green
+          '#1e3a8a', // Dark blue
+          '#581c87', // Dark purple
+          '#92400e', // Dark amber
+          '#374151', // Dark slate
+          '#0f172a'  // Dark navy
+        ];
+        return colors[Math.abs(notebookId) % colors.length];
+      }
+
+      getSectionColor(sectionId) {
+        if (!sectionId) return '#f3f4f6';
+        const section = this.sections.find(s => s.id === sectionId);
+        if (!section) return '#f3f4f6';
+        
+        const baseColor = this.getNotebookColor(section.notebookId);
+        
+        // Convert hex to RGB and lighten
+        const hex = baseColor.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        
+        // Lighten by 40%
+        const lightR = Math.min(255, Math.floor(r + (255 - r) * 0.4));
+        const lightG = Math.min(255, Math.floor(g + (255 - g) * 0.4));
+        const lightB = Math.min(255, Math.floor(b + (255 - b) * 0.4));
+        
+        return `rgb(${lightR}, ${lightG}, ${lightB})`;
+      }
+
+      getPageColor(pageId) {
+        if (!pageId) return '#f9fafb';
+        const page = this.pages.find(p => p.id === pageId);
+        if (!page) return '#f9fafb';
+        
+        const section = this.sections.find(s => s.id === page.sectionId);
+        if (!section) return '#f9fafb';
+        
+        const baseColor = this.getSectionColor(section.id);
+        
+        // Convert RGB to hex and lighten further
+        const rgbMatch = baseColor.match(/rgb\((\d+), (\d+), (\d+)\)/);
+        if (!rgbMatch) return '#f9fafb';
+        
+        const r = parseInt(rgbMatch[1]);
+        const g = parseInt(rgbMatch[2]);
+        const b = parseInt(rgbMatch[3]);
+        
+        // Lighten by another 30%
+        const lightR = Math.min(255, Math.floor(r + (255 - r) * 0.3));
+        const lightG = Math.min(255, Math.floor(g + (255 - g) * 0.3));
+        const lightB = Math.min(255, Math.floor(b + (255 - b) * 0.3));
+        
+        return `rgb(${lightR}, ${lightG}, ${lightB})`;
+      }
+
+      getNotebookPageCount(notebookId) {
+        const notebookSections = this.sections.filter(s => s.notebookId === notebookId);
+        return notebookSections.reduce((count, section) => count + this.getSectionPageCount(section.id), 0);
+      }
+
+      getSectionPageCount(sectionId) {
+        return this.pages.filter(p => p.sectionId === sectionId).length;
+      }
+
+      selectNotebook(notebookId) {
+        this.currentNotebook = this.notebooks.find(n => n.id === notebookId);
+        this.currentSection = null;
+        this.currentPage = null;
+        
+        // Show sections sidebar and hide pages sidebar
+        document.getElementById('sectionSidebar').style.display = 'block';
+        document.getElementById('pagesSidebar').style.display = 'none';
+        
+        // Update back button visibility
+        document.getElementById('backToNotebooksBtn').classList.add('hidden');
+        document.getElementById('backToSectionsBtn').classList.add('hidden');
+        
+        // Re-render notebooks to update active state
+        this.renderNotebooks();
+        this.renderSections();
+        this.showWelcomeView();
+      }
+
+      selectSection(sectionId) {
+        this.currentSection = this.sections.find(s => s.id === sectionId);
+        this.currentPage = null;
+        
+        // Show pages sidebar
+        document.getElementById('pagesSidebar').style.display = 'block';
+        
+        // Update back button visibility
+        document.getElementById('backToSectionsBtn').classList.remove('hidden');
+        
+        // Re-render sections to update active state
+        this.renderSections();
+        
+        if (this.currentSection && this.currentSection.isPrivate && !this.unlockedSections.has(sectionId)) {
+          this.showPasswordModal();
+        } else {
+          // Show pages sidebar and render pages only if unlocked
+          if (this.currentSection && this.currentSection.isPrivate && this.unlockedSections.has(sectionId)) {
+            // Start auto-lock timer for private sections
+            this.startAutoLockTimer(sectionId);
+          }
+          this.renderPages();
+          this.showWelcomeView();
+        }
+      }
+
+      selectPage(pageId) {
+        this.currentPage = this.pages.find(p => p.id === pageId);
+        
+        // Hide pages sidebar when page is selected
+        document.getElementById('pagesSidebar').style.display = 'none';
+        
+        // Re-render pages to update active state
+        this.renderPages();
+        this.showPageView();
+      }
+
+      showWelcomeView() {
+        document.getElementById('welcomeView').classList.remove('hidden');
+        document.getElementById('pageView').classList.add('hidden');
+      }
+
+      showPageView() {
+        document.getElementById('welcomeView').classList.add('hidden');
+        document.getElementById('pageView').classList.remove('hidden');
+        
+        if (this.currentPage) {
+          document.getElementById('currentPageTitle').textContent = this.currentPage.title;
+          document.getElementById('pageTitleInput').value = this.currentPage.title;
+          
+          // Only show content if section is unlocked
+          if (this.currentSection && this.currentSection.isPrivate) {
+            if (this.unlockedSections.has(this.currentSection.id)) {
+              // Section is unlocked, decrypt and show content
+              const decryptedContent = this.decrypt(this.currentPage.content, this.currentSection.password);
+              document.getElementById('pageContentInput').value = decryptedContent || '';
+              document.getElementById('pageContentInput').disabled = false;
+            } else {
+              // Section is locked, show encrypted placeholder
+              document.getElementById('pageContentInput').value = '🔒 Content is locked. Please unlock the section to view content.';
+              document.getElementById('pageContentInput').disabled = true;
+            }
+          } else {
+            // Non-private section, show content normally
+            document.getElementById('pageContentInput').value = this.currentPage.content || '';
+            document.getElementById('pageContentInput').disabled = false;
+          }
+        } else {
+          document.getElementById('currentPageTitle').textContent = 'New Page';
+          document.getElementById('pageTitleInput').value = '';
+          document.getElementById('pageContentInput').value = '';
+          document.getElementById('pageContentInput').disabled = false;
+        }
+      }
+
+      showAddNotebookModal() {
+        document.getElementById('addNotebookModal').style.display = 'flex';
+        document.getElementById('addNotebookForm').reset();
+      }
+
+      hideAddNotebookModal() {
+        document.getElementById('addNotebookModal').style.display = 'none';
+      }
+
+      showAddSectionModal() {
+        if (!this.currentNotebook) {
+          this.showToast('Please select a notebook first', 'warning');
+          return;
+        }
+        document.getElementById('addSectionModal').style.display = 'flex';
+        document.getElementById('addSectionForm').reset();
+        document.getElementById('sectionPasswordSection').classList.add('hidden');
+      }
+
+      hideAddSectionModal() {
+        document.getElementById('addSectionModal').style.display = 'none';
+      }
+
+      showAddPageModal() {
+        if (!this.currentSection) {
+          this.showToast('Please select a section first', 'warning');
+          return;
+        }
+        document.getElementById('addPageModal').style.display = 'flex';
+        document.getElementById('addPageForm').reset();
+        document.getElementById('pageName').focus();
+      }
+
+      hideAddPageModal() {
+        document.getElementById('addPageModal').style.display = 'none';
+      }
+
+      showPasswordModal() {
+        document.getElementById('passwordModal').style.display = 'flex';
+        document.getElementById('passwordInput').value = '';
+      }
+
+      hidePasswordModal() {
+        document.getElementById('passwordModal').style.display = 'none';
+      }
+
+      addNotebook() {
+        const name = document.getElementById('notebookName').value;
+        const notebook = {
+          id: Date.now(),
+          name,
+          createdAt: new Date().toISOString()
+        };
+        
+        this.notebooks.push(notebook);
+        this.saveData();
+        this.renderNotebooks();
+        this.hideAddNotebookModal();
+        this.showToast('Notebook created successfully', 'success');
+      }
+
+      addSection() {
+        const name = document.getElementById('sectionName').value;
+        const isPrivate = document.getElementById('sectionIsPrivate').checked;
+        const password = document.getElementById('sectionPassword').value;
+
+        if (isPrivate && !password) {
+          this.showToast('Password is required for private sections', 'error');
+          return;
+        }
+
+        const section = {
+          id: Date.now(),
+          notebookId: this.currentNotebook.id,
+          name,
+          isPrivate,
+          password: isPrivate ? password : null,
+          createdAt: new Date().toISOString()
+        };
+        
+        this.sections.push(section);
+        this.saveData();
+        this.renderSections();
+        this.hideAddSectionModal();
+        this.showToast('Section created successfully', 'success');
+      }
+
+      addPage() {
+        const name = document.getElementById('pageName').value;
+        if (!name.trim()) {
+          this.showToast('Please enter a page name', 'warning');
+          return;
+        }
+        
+        const page = {
+          id: Date.now(),
+          sectionId: this.currentSection ? this.currentSection.id : null,
+          title: name,
+          content: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        this.pages.push(page);
+        this.saveData();
+        this.currentPage = page;
+        
+        // Hide pages sidebar and show page editor
+        document.getElementById('pagesSidebar').style.display = 'none';
+        this.renderPages(); // Refresh pages list
+        this.renderSections(); // Update section page count
+        this.hideAddPageModal();
+        this.showPageView();
+        this.showToast('Page created successfully', 'success');
+      }
+
+      savePage() {
+        if (!this.currentPage) {
+          this.showToast('No page selected', 'warning');
+          return;
+        }
+
+        const title = document.getElementById('pageTitleInput').value;
+        const content = document.getElementById('pageContentInput').value;
+
+        console.log('💾 Saving page:', {
+          pageId: this.currentPage.id,
+          title: title,
+          content: content,
+          currentSection: this.currentSection ? this.currentSection.id : 'null',
+          isPrivate: this.currentSection ? this.currentSection.isPrivate : 'null'
+        });
+
+        this.currentPage.title = title;
+        
+        if (this.currentSection && this.currentSection.isPrivate) {
+          this.currentPage.content = this.encrypt(content, this.currentSection.password);
+          console.log('🔒 Encrypted content for private section');
+        } else {
+          this.currentPage.content = content;
+          console.log('🔓 Saved plain content');
+        }
+        
+        this.currentPage.updatedAt = new Date().toISOString();
+        this.saveData();
+        this.renderPages(); // Refresh pages list to show updated title
+        this.showToast('Page saved successfully', 'success');
+      }
+
+      unlockSection() {
+        const password = document.getElementById('passwordInput').value;
+        const section = this.sections.find(s => s.id === (this.currentSection ? this.currentSection.id : null));
+        
+        if (password === section.password) {
+          this.unlockedSections.add(section.id);
+          this.startAutoLockTimer(section.id);
+          this.hidePasswordModal();
+          this.renderSections(); // Update lock icons
+          document.getElementById('pagesSidebar').style.display = 'block';
+          this.renderPages();
+          this.showWelcomeView();
+        } else {
+          this.showToast('Incorrect password', 'error');
+        }
+      }
+
+      toggleSectionLock(sectionId) {
+        const section = this.sections.find(s => s.id === sectionId);
+        if (!section.isPrivate) return;
+
+        if (this.unlockedSections.has(sectionId)) {
+          // Lock the section
+          this.lockSection(sectionId);
+        } else {
+          // Unlock the section
+          this.currentSection = section;
+          this.showPasswordModal();
+        }
+      }
+
+      lockSection(sectionId) {
+        this.unlockedSections.delete(sectionId);
+        this.clearAutoLockTimer(sectionId);
+        
+        // If this was the current section, clear it
+        if (this.currentSection && this.currentSection.id === sectionId) {
+          this.currentSection = null;
+          this.currentPage = null;
+          document.getElementById('pagesSidebar').style.display = 'none';
+          this.showWelcomeView();
+        }
+        
+        this.renderSections(); // Update lock icons
+        this.showToast('Section locked', 'info');
+      }
+
+      startAutoLockTimer(sectionId) {
+        // Clear existing timer
+        this.clearAutoLockTimer(sectionId);
+        
+        // Set new timer for 3 minutes (180000 ms)
+        const timer = setTimeout(() => {
+          this.lockSection(sectionId);
+          this.showToast('Section auto-locked after 3 minutes', 'warning');
+        }, 180000);
+        
+        this.sectionLockTimers.set(sectionId, timer);
+      }
+
+      clearAutoLockTimer(sectionId) {
+        const timer = this.sectionLockTimers.get(sectionId);
+        if (timer) {
+          clearTimeout(timer);
+          this.sectionLockTimers.delete(sectionId);
+        }
+      }
+
+      toggleMobileView(view) {
+        // Hide all sidebars first
+        document.querySelectorAll('.notebook-sidebar, .section-sidebar, #pagesSidebar').forEach(sidebar => {
+          sidebar.style.display = 'none';
+        });
+
+        // Show the selected sidebar
+        if (view === 'notebooks') {
+          document.querySelector('.notebook-sidebar').style.display = 'block';
+        } else if (view === 'sections' && this.currentNotebook) {
+          document.querySelector('.section-sidebar').style.display = 'block';
+        } else if (view === 'pages') {
+          // Show all pages from all notebooks (excluding protected sections)
+          this.currentSection = null; // Clear current section to show global pages
+          document.getElementById('pagesSidebar').style.display = 'block';
+          this.renderPages();
+        } else {
+          this.showToast(`Please select a ${view === 'sections' ? 'notebook' : 'section'} first`, 'warning');
+        }
+      }
+
+      backToMain() {
+        // Clear all selections
+        this.currentNotebook = null;
+        this.currentSection = null;
+        this.currentPage = null;
+        
+        // Hide all sidebars except notebooks
+        document.getElementById('sectionSidebar').style.display = 'none';
+        document.getElementById('pagesSidebar').style.display = 'none';
+        
+        // Hide all back buttons
+        document.getElementById('backToNotebooksBtn').classList.add('hidden');
+        document.getElementById('backToSectionsBtn').classList.add('hidden');
+        
+        // Show welcome view
+        this.showWelcomeView();
+        
+        // Re-render notebooks
+        this.renderNotebooks();
+      }
+
+      backToNotebooks() {
+        // Clear section and page selections
+        this.currentSection = null;
+        this.currentPage = null;
+        
+        // Hide pages sidebar
+        document.getElementById('pagesSidebar').style.display = 'none';
+        
+        // Update back button visibility
+        document.getElementById('backToNotebooksBtn').classList.add('hidden');
+        document.getElementById('backToSectionsBtn').classList.add('hidden');
+        
+        // Show welcome view
+        this.showWelcomeView();
+        
+        // Re-render sections to update active state
+        this.renderSections();
+      }
+
+      backToSections() {
+        // Clear current page but keep section
+        this.currentPage = null;
+        
+        // Show pages sidebar
+        document.getElementById('pagesSidebar').style.display = 'block';
+        
+        // Update back button visibility
+        document.getElementById('backToSectionsBtn').classList.add('hidden');
+        
+        // Show welcome view
+        this.showWelcomeView();
+        
+        // Re-render sections and pages to update active state
+        this.renderSections();
+        this.renderPages();
+      }
+
+      collapseSidebar(sidebarType) {
+        const sidebarMap = {
+          'notebooks': 'notebookSidebar',
+          'sections': 'sectionSidebar',
+          'pages': 'pagesSidebar'
+        };
+        
+        const sidebar = document.getElementById(sidebarMap[sidebarType]);
+        if (sidebar) {
+          sidebar.style.display = 'none';
+        }
+      }
+
+      toggleMobileMenu() {
+        const mobileMenuDropdown = document.getElementById('mobileMenuDropdown');
+        if (mobileMenuDropdown) {
+          mobileMenuDropdown.classList.toggle('hidden');
+        }
+      }
+
+      toggleProfileDropdown() {
+        const profileDropdown = document.getElementById('userProfileDropdown');
+        if (profileDropdown) {
+          profileDropdown.classList.toggle('hidden');
+        }
+      }
+
+      hideProfileDropdown() {
+        const profileDropdown = document.getElementById('userProfileDropdown');
+        if (profileDropdown) {
+          profileDropdown.classList.add('hidden');
+        }
+      }
+
+      async logout() {
+        try {
+          if (this.currentUser && typeof firebase !== 'undefined') {
+            await firebase.auth().signOut();
+          }
+        } catch (error) {
+          console.error('Logout error:', error);
+        } finally {
+          this.currentUser = null;
+          this.authToken = null;
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('currentUser');
+          this.updateUI();
+          this.hideProfileDropdown();
+          this.showToast('Logged out successfully', 'success');
+        }
+      }
+
+      handleContextMenu(e) {
+        const target = e.target.closest('[data-context-type]');
+        if (!target) {
+          this.hideContextMenu();
+          return;
+        }
+
+        e.preventDefault();
+        this.contextMenuTarget = target;
+        this.contextMenuType = target.dataset.contextType;
+        this.contextMenuId = target.dataset[`${this.contextMenuType}Id`];
+
+
+        const contextMenu = document.getElementById('contextMenu');
+        contextMenu.style.left = e.pageX + 'px';
+        contextMenu.style.top = e.pageY + 'px';
+        contextMenu.classList.remove('hidden');
+      }
+
+      hideContextMenu() {
+        document.getElementById('contextMenu').classList.add('hidden');
+        this.contextMenuTarget = null;
+        this.contextMenuType = null;
+        this.contextMenuId = null;
+      }
+
+      handleContextMenuAction(e) {
+        const action = e.target.closest('.context-menu-item')?.dataset.action;
+        
+        if (!action) return;
+
+        // Store the context menu data before hiding
+        const contextType = this.contextMenuType;
+        const contextId = this.contextMenuId;
+
+        this.hideContextMenu();
+
+        if (action === 'rename') {
+          this.showRenameModalWithData(contextType, contextId);
+        } else if (action === 'delete') {
+          this.handleDeleteWithData(contextType, contextId);
+        } else if (action === 'move') {
+          this.showMoveModalWithData(contextType, contextId);
+        }
+      }
+
+      handleDeleteWithData(contextType, contextId) {
+        console.log('Handle delete called with data:', {
+          contextType: contextType,
+          contextId: contextId
+        });
+
+        if (!contextType || !contextId) {
+          console.log('Missing context menu data');
+          return;
+        }
+
+        const id = parseInt(contextId);
+        let itemName = '';
+
+        switch (contextType) {
+          case 'notebook':
+            const notebook = this.notebooks.find(n => n.id === id);
+            if (notebook) {
+              itemName = notebook.name;
+              console.log('Deleting notebook:', itemName);
+              this.deleteNotebookById(id);
+            }
+            break;
+          case 'section':
+            const section = this.sections.find(s => s.id === id);
+            if (section) {
+              itemName = section.name;
+              console.log('Deleting section:', itemName);
+              this.deleteSectionById(id);
+            }
+            break;
+          case 'page':
+            const page = this.pages.find(p => p.id === id);
+            if (page) {
+              itemName = page.title;
+              console.log('Deleting page:', itemName);
+              this.deletePageById(id);
+            }
+            break;
+        }
+      }
+
+      handleDelete() {
+        console.log('Handle delete called:', {
+          contextMenuType: this.contextMenuType,
+          contextMenuId: this.contextMenuId
+        });
+
+        if (!this.contextMenuType || !this.contextMenuId) {
+          console.log('Missing context menu data');
+          return;
+        }
+
+        const id = parseInt(this.contextMenuId);
+        let itemName = '';
+
+        switch (this.contextMenuType) {
+          case 'notebook':
+            const notebook = this.notebooks.find(n => n.id === id);
+            if (notebook) {
+              itemName = notebook.name;
+              console.log('Deleting notebook:', itemName);
+              this.deleteNotebookById(id);
+            }
+            break;
+          case 'section':
+            const section = this.sections.find(s => s.id === id);
+            if (section) {
+              itemName = section.name;
+              console.log('Deleting section:', itemName);
+              this.deleteSectionById(id);
+            }
+            break;
+          case 'page':
+            const page = this.pages.find(p => p.id === id);
+            if (page) {
+              itemName = page.title;
+              console.log('Deleting page:', itemName);
+              this.deletePageById(id);
+            }
+            break;
+        }
+      }
+
+      showMoveModalWithData(contextType, contextId) {
+        if (!contextType || !contextId) return;
+
+        
+        // Hide the context menu first
+        this.hideContextMenu();
+        
+        // Store the context data in the class
+        this.contextMenuType = contextType;
+        this.contextMenuId = contextId;
+        
+        const id = parseInt(contextId);
+        const modalContent = document.getElementById('moveModalContent');
+        let content = '';
+
+        if (contextType === 'page') {
+          // Show sections to move page to (excluding protected sections)
+          const availableSections = this.sections.filter(s => 
+            !s.isPrivate || this.unlockedSections.has(s.id)
+          );
+          
+          content = `
+            <p class="text-gray-600 dark:text-gray-400 mb-4">Select a section to move this page to:</p>
+            <select id="moveTargetSelect" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100">
+              <option value="">Select a section...</option>
+              ${availableSections.map(section => {
+                const notebook = this.notebooks.find(n => n.id === section.notebookId);
+                return `<option value="${section.id}">${notebook?.name || 'Unknown'} → ${section.name}</option>`;
+              }).join('')}
+            </select>
+          `;
+        } else if (contextType === 'section') {
+          // Show notebooks to move section to
+          content = `
+            <p class="text-gray-600 dark:text-gray-400 mb-4">Select a notebook to move this section to:</p>
+            <select id="moveTargetSelect" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100">
+              <option value="">Select a notebook...</option>
+              ${this.notebooks.map(notebook => 
+                `<option value="${notebook.id}">${notebook.name}</option>`
+              ).join('')}
+            </select>
+          `;
+        }
+
+        modalContent.innerHTML = content;
+        document.getElementById('moveModal').classList.remove('hidden');
+      }
+
+      showMoveModal() {
+        if (!this.contextMenuType || !this.contextMenuId) return;
+
+        const id = parseInt(this.contextMenuId);
+        const modalContent = document.getElementById('moveModalContent');
+        let content = '';
+
+        if (this.contextMenuType === 'page') {
+          // Show sections to move page to (excluding protected sections)
+          const availableSections = this.sections.filter(s => 
+            !s.isPrivate || this.unlockedSections.has(s.id)
+          );
+          
+          content = `
+            <p class="text-gray-600 dark:text-gray-400 mb-4">Select a section to move this page to:</p>
+            <select id="moveTargetSelect" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100">
+              <option value="">Select a section...</option>
+              ${availableSections.map(section => {
+                const notebook = this.notebooks.find(n => n.id === section.notebookId);
+                return `<option value="${section.id}">${notebook?.name} → ${section.name}</option>`;
+              }).join('')}
+            </select>
+          `;
+        } else if (this.contextMenuType === 'section') {
+          // Show notebooks to move section to
+          const availableNotebooks = this.notebooks.filter(n => n.id !== this.currentNotebook?.id);
+          
+          content = `
+            <p class="text-gray-600 dark:text-gray-400 mb-4">Select a notebook to move this section to:</p>
+            <select id="moveTargetSelect" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100">
+              <option value="">Select a notebook...</option>
+              ${availableNotebooks.map(notebook => 
+                `<option value="${notebook.id}">${notebook.name}</option>`
+              ).join('')}
+            </select>
+          `;
+        }
+
+        modalContent.innerHTML = content;
+        document.getElementById('moveModal').classList.remove('hidden');
+      }
+
+      hideMoveModal() {
+        document.getElementById('moveModal').classList.add('hidden');
+        this.contextMenuTarget = null;
+        this.contextMenuType = null;
+        this.contextMenuId = null;
+      }
+
+      confirmMove() {
+        console.log('Confirm move called:', {
+          contextMenuType: this.contextMenuType,
+          contextMenuId: this.contextMenuId
+        });
+
+        if (!this.contextMenuType || !this.contextMenuId) {
+          console.log('Missing context menu data in confirmMove');
+          return;
+        }
+
+        const targetSelect = document.getElementById('moveTargetSelect');
+        const targetId = parseInt(targetSelect.value);
+        
+        console.log('Target selected:', targetId);
+        
+        if (!targetId) {
+          this.showToast('Please select a target', 'warning');
+          return;
+        }
+
+        const id = parseInt(this.contextMenuId);
+
+        if (this.contextMenuType === 'page') {
+          console.log('Moving page to section:', id, targetId);
+          this.movePageToSection(id, targetId);
+        } else if (this.contextMenuType === 'section') {
+          console.log('Moving section to notebook:', id, targetId);
+          this.moveSectionToNotebook(id, targetId);
+        }
+
+        this.hideMoveModal();
+      }
+
+      movePageToSection(pageId, sectionId) {
+        console.log('movePageToSection called:', pageId, sectionId);
+        const page = this.pages.find(p => p.id === pageId);
+        const section = this.sections.find(s => s.id === sectionId);
+        
+        console.log('Found page:', page);
+        console.log('Found section:', section);
+        
+        if (page && section) {
+          page.sectionId = sectionId;
+          console.log('Updated page sectionId to:', sectionId);
+          this.saveData();
+          this.renderPages();
+          this.renderSections();
+          this.renderNotebooks();
+          this.showToast(`Page moved to ${section.name}`, 'success');
+        } else {
+          console.log('Page or section not found for move operation');
+        }
+      }
+
+      moveSectionToNotebook(sectionId, notebookId) {
+        const section = this.sections.find(s => s.id === sectionId);
+        const notebook = this.notebooks.find(n => n.id === notebookId);
+        
+        if (section && notebook) {
+          section.notebookId = notebookId;
+          this.saveData();
+          this.renderSections();
+          this.renderNotebooks();
+          this.showToast(`Section moved to ${notebook.name}`, 'success');
+        }
+      }
+
+      // Rename Modal Functions
+      showRenameModalWithData(contextType, contextId) {
+        if (!contextType || !contextId) return;
+        
+        // Hide the context menu first
+        this.hideContextMenu();
+        
+        // Store context data in modal dataset to avoid clearing
+        const modal = document.getElementById('renameModal');
+        modal.dataset.contextType = contextType;
+        modal.dataset.contextId = contextId;
+        
+        // Convert string ID to number for lookup
+        const id = parseInt(contextId);
+        
+        let currentName = '';
+        if (contextType === 'notebook') {
+          const notebook = this.notebooks.find(n => n.id === id);
+          currentName = notebook ? notebook.name : '';
+        } else if (contextType === 'section') {
+          const section = this.sections.find(s => s.id === id);
+          currentName = section ? section.name : '';
+        } else if (contextType === 'page') {
+          const page = this.pages.find(p => p.id === id);
+          currentName = page ? page.title : '';
+        }
+        
+        document.getElementById('renameInput').value = currentName;
+        document.getElementById('renameModal').classList.remove('hidden');
+        
+        // Focus on the input field
+        setTimeout(() => {
+          document.getElementById('renameInput').focus();
+          document.getElementById('renameInput').select();
+        }, 100);
+      }
+
+      hideRenameModal() {
+        const modal = document.getElementById('renameModal');
+        modal.classList.add('hidden');
+        // Clear the dataset
+        delete modal.dataset.contextType;
+        delete modal.dataset.contextId;
+      }
+
+      confirmRenameWithData(contextType, contextId) {
+        const newName = document.getElementById('renameInput').value.trim();
+        
+        if (!newName) {
+          this.showToast('Please enter a name', 'warning');
+          return;
+        }
+
+        const id = parseInt(contextId);
+
+        // Perform the rename operation
+        if (contextType === 'notebook') {
+          this.renameNotebook(id, newName);
+        } else if (contextType === 'section') {
+          this.renameSection(id, newName);
+        } else if (contextType === 'page') {
+          this.renamePage(id, newName);
+        }
+
+        // Hide modal after performing the rename
+        this.hideRenameModal();
+      }
+
+      renameNotebook(notebookId, newName) {
+        const notebook = this.notebooks.find(n => n.id === notebookId);
+        if (notebook) {
+          const oldName = notebook.name;
+          notebook.name = newName;
+          this.saveData();
+          this.renderNotebooks();
+          this.showToast(`Notebook renamed from "${oldName}" to "${newName}"`, 'success');
+        }
+      }
+
+      renameSection(sectionId, newName) {
+        const section = this.sections.find(s => s.id === sectionId);
+        if (section) {
+          const oldName = section.name;
+          section.name = newName;
+          this.saveData();
+          this.renderSections();
+          this.showToast(`Section renamed from "${oldName}" to "${newName}"`, 'success');
+        }
+      }
+
+      renamePage(pageId, newName) {
+        const page = this.pages.find(p => p.id === pageId);
+        
+        if (page) {
+          const oldName = page.title;
+          page.title = newName;
+          page.updatedAt = new Date().toISOString();
+          this.saveData();
+          this.renderPages();
+          this.showToast(`Page renamed from "${oldName}" to "${newName}"`, 'success');
+        } else {
+          this.showToast('Page not found for rename', 'error');
+        }
+      }
+
+      deleteNotebookById(id) {
+        const notebook = this.notebooks.find(n => n.id === id);
+        if (!notebook) return;
+        
+        if (confirm(`Are you sure you want to delete "${notebook.name}"? This will also delete all sections and pages in this notebook.`)) {
+          // Delete all pages in sections of this notebook
+          const notebookSections = this.sections.filter(s => s.notebookId === id);
+          const sectionIds = notebookSections.map(s => s.id);
+          this.pages = this.pages.filter(p => !sectionIds.includes(p.sectionId));
+          
+          // Delete all sections in this notebook
+          this.sections = this.sections.filter(s => s.notebookId !== id);
+          
+          // Delete the notebook
+          this.notebooks = this.notebooks.filter(n => n.id !== id);
+          
+          // Clear current selections if they were deleted
+          if (this.currentNotebook && this.currentNotebook.id === id) {
+            this.currentNotebook = null;
+            this.currentSection = null;
+            this.currentPage = null;
+            this.showWelcomeView();
+          }
+          
+          // Save and refresh
+          this.saveData();
+          this.renderNotebooks();
+          this.renderSections();
+          this.showToast('Notebook deleted successfully', 'success');
+        }
+      }
+
+      deleteSectionById(id) {
+        const section = this.sections.find(s => s.id === id);
+        if (!section) return;
+        
+        if (confirm(`Are you sure you want to delete "${section.name}"? This will also delete all pages in this section.`)) {
+          // Delete all pages in this section
+          this.pages = this.pages.filter(p => p.sectionId !== id);
+          
+          // Delete the section
+          this.sections = this.sections.filter(s => s.id !== id);
+          
+          // Clear current selections if they were deleted
+          if (this.currentSection && this.currentSection.id === id) {
+            this.currentSection = null;
+            this.currentPage = null;
+            this.showWelcomeView();
+          }
+          
+          // Save and refresh
+          this.saveData();
+          this.renderSections();
+          this.renderNotebooks();
+          this.showToast('Section deleted successfully', 'success');
+        }
+      }
+
+      deletePageById(id) {
+        const page = this.pages.find(p => p.id === id);
+        if (!page) return;
+        
+        if (confirm(`Are you sure you want to delete "${page.title}"?`)) {
+          // Delete the page
+          this.pages = this.pages.filter(p => p.id !== id);
+          
+          // Clear current page if it was deleted
+          if (this.currentPage && this.currentPage.id === id) {
+            this.currentPage = null;
+            this.showWelcomeView();
+          }
+          
+          // Save and refresh
+          this.saveData();
+          this.renderPages();
+          this.renderSections();
+          this.renderNotebooks();
+          this.showToast('Page deleted successfully', 'success');
+        }
+      }
+
+      deleteNotebook() {
+        if (!this.currentNotebook) return;
+        
+        if (confirm(`Are you sure you want to delete "${this.currentNotebook.name}"? This will also delete all sections and pages in this notebook.`)) {
+          // Delete all pages in sections of this notebook
+          const notebookSections = this.sections.filter(s => s.notebookId === this.currentNotebook.id);
+          const sectionIds = notebookSections.map(s => s.id);
+          this.pages = this.pages.filter(p => !sectionIds.includes(p.sectionId));
+          
+          // Delete all sections in this notebook
+          this.sections = this.sections.filter(s => s.notebookId !== this.currentNotebook.id);
+          
+          // Delete the notebook
+          this.notebooks = this.notebooks.filter(n => n.id !== this.currentNotebook.id);
+          
+          // Clear current selections
+          this.currentNotebook = null;
+          this.currentSection = null;
+          this.currentPage = null;
+          
+          // Save and refresh
+          this.saveData();
+          this.renderNotebooks();
+          this.renderSections();
+          this.showWelcomeView();
+          this.showToast('Notebook deleted successfully', 'success');
+        }
+      }
+
+      deleteSection() {
+        if (!this.currentSection) return;
+        
+        if (this.currentSection && confirm(`Are you sure you want to delete "${this.currentSection.name}"? This will also delete all pages in this section.`)) {
+          // Delete all pages in this section
+          this.pages = this.pages.filter(p => p.sectionId !== this.currentSection.id);
+          
+          // Delete the section
+          this.sections = this.sections.filter(s => s.id !== this.currentSection.id);
+          
+          // Clear current selections
+          this.currentSection = null;
+          this.currentPage = null;
+          
+          // Save and refresh
+          this.saveData();
+          this.renderSections();
+          this.renderNotebooks();
+          this.showWelcomeView();
+          this.showToast('Section deleted successfully', 'success');
+        }
+      }
+
+      deletePage() {
+        if (!this.currentPage) return;
+        
+        if (confirm(`Are you sure you want to delete "${this.currentPage.title}"?`)) {
+          // Delete the page
+          this.pages = this.pages.filter(p => p.id !== this.currentPage.id);
+          
+          // Clear current page
+          this.currentPage = null;
+          
+          // Save and refresh
+          this.saveData();
+          this.renderPages();
+          this.renderSections();
+          this.renderNotebooks();
+          this.showWelcomeView();
+          this.showToast('Page deleted successfully', 'success');
+        }
+      }
+
+      showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        
+        document.getElementById('toastContainer').appendChild(toast);
+        
+        setTimeout(() => toast.classList.add('show'), 100);
+        setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+    }
+
+    // Initialize notes page when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      new NotesPage();
+    });
+  </script>
+</body>
+
+</html>

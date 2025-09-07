@@ -180,4 +180,61 @@ declare const theme: {
 declare const setupEventListeners: () => void;
 declare const loadCurrentTimes: () => Promise<void>;
 declare const initApp: () => Promise<void>;
+interface FirebaseUser {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    photoURL: string | null;
+    providerId: string;
+}
+interface User {
+    id: number;
+    email: string;
+    name: string;
+    country: string;
+    timezone: string;
+    profile_picture?: string;
+    provider: string;
+    created_at: string;
+    last_login?: string;
+}
+interface AuthResponse {
+    user: User;
+    token: string;
+    message: string;
+}
+declare class AuthManager {
+    private currentUser;
+    private authToken;
+    private isLoginMode;
+    private firebaseAuth;
+    constructor();
+    private initializeFirebase;
+    private loadStoredAuth;
+    private handleFirebaseUser;
+    private setupEventListeners;
+    private showAuthModal;
+    private hideAuthModal;
+    private toggleAuthMode;
+    private resetForms;
+    private handleLogin;
+    private handleRegister;
+    private handleSocialLogin;
+    private getFirebaseErrorMessage;
+    private updateTimezoneFromCountry;
+    private handleLogout;
+    private toggleProfileDropdown;
+    private hideProfileDropdown;
+    private validatePassword;
+    private saveAuth;
+    private clearAuth;
+    private updateUI;
+    private showError;
+    private showSuccess;
+    isAuthenticated(): boolean;
+    getCurrentUser(): User | null;
+    getAuthToken(): string | null;
+    makeAuthenticatedRequest(url: string, options?: RequestInit): Promise<Response>;
+}
+declare const authManager: AuthManager;
 //# sourceMappingURL=frontend.d.ts.map

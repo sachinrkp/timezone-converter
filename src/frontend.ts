@@ -1,6 +1,5 @@
 // Frontend application for timezone converter
 
-
 // Types
 interface TimezoneData {
   zoneName: string;
@@ -2168,6 +2167,672 @@ const initApp = async (): Promise<void> => {
     utils.showError('Failed to initialize the application. Please refresh the page.');
   }
 };
+
+// ================================
+// FIREBASE AUTHENTICATION SYSTEM
+// ================================
+
+interface FirebaseUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  providerId: string;
+}
+
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  country: string;
+  timezone: string;
+  profile_picture?: string;
+  provider: string;
+  created_at: string;
+  last_login?: string;
+}
+
+interface AuthResponse {
+  user: User;
+  token: string;
+  message: string;
+}
+
+class AuthManager {
+  private currentUser: User | null = null;
+  private authToken: string | null = null;
+  private isLoginMode: boolean = true;
+  private firebaseAuth: any = null;
+
+  constructor() {
+    this.initializeFirebase();
+    this.setupEventListeners();
+    this.updateUI();
+  }
+
+  private async initializeFirebase(): Promise<void> {
+    try {
+      // Check if Firebase is available globally
+      if (typeof firebase === 'undefined') {
+        console.error('❌ Firebase SDK not loaded');
+        return;
+      }
+      
+      // Use Firebase compat API
+      const { initializeApp, auth } = firebase;
+      
+      // Firebase configuration - get from server config
+      const configResponse = await fetch('/api/config');
+      const config = await configResponse.json();
+      
+      console.log('Firebase config from server:', config);
+      
+      // Use server config if available, otherwise use fallback
+      const firebaseConfig = {
+        apiKey: config.firebaseApiKey || "AIzaSyC9UxLaYTPW...", // Your actual API key
+        authDomain: config.firebaseAuthDomain || "utility-tools-12345.firebaseapp.com", // Your actual domain
+        projectId: config.firebaseProjectId || "utility-tools-12345", // Your actual project ID
+        storageBucket: config.firebaseStorageBucket || "utility-tools-12345.appspot.com",
+        messagingSenderId: config.firebaseMessagingSenderId || "123456789",
+        appId: config.firebaseAppId || "1:123456789:web:abcdef123456"
+      };
+
+      // Check if all required config values are present
+      if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+        console.error('❌ Firebase configuration is incomplete:', firebaseConfig);
+        console.log('Available environment variables:', {
+          FIREBASE_API_KEY: config.firebaseApiKey ? 'SET' : 'NOT SET',
+          FIREBASE_PROJECT_ID: config.firebaseProjectId ? 'SET' : 'NOT SET',
+          FIREBASE_AUTH_DOMAIN: config.firebaseAuthDomain ? 'SET' : 'NOT SET'
+        });
+        return;
+      }
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      this.firebaseAuth = auth(app);
+
+      // Listen for authentication state changes
+      this.firebaseAuth.onAuthStateChanged((user: any) => {
+        if (user) {
+          this.handleFirebaseUser(user);
+        } else {
+          this.currentUser = null;
+          this.authToken = null;
+          this.updateUI();
+        }
+      });
+
+      console.log('✅ Firebase initialized successfully');
+    } catch (error) {
+      console.error('❌ Firebase initialization failed:', error);
+      // Fallback to local authentication
+      this.loadStoredAuth();
+    }
+  }
+
+  private loadStoredAuth(): void {
+    // Load stored authentication from localStorage
+    const storedAuth = localStorage.getItem('authToken');
+    const storedUser = localStorage.getItem('currentUser');
+    
+    if (storedAuth && storedUser) {
+      this.authToken = storedAuth;
+      this.currentUser = JSON.parse(storedUser);
+      this.updateUI();
+    }
+  }
+
+  private async handleFirebaseUser(firebaseUser: any): Promise<void> {
+    try {
+      // Get Firebase ID token
+      const idToken = await firebaseUser.getIdToken();
+      
+      // Sync with our backend
+      const response = await fetch('/api/auth/firebase-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          providerId: firebaseUser.providerData[0]?.providerId || 'firebase',
+          idToken: idToken
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.currentUser = data.user;
+        this.authToken = data.token;
+        this.saveAuth();
+        this.updateUI();
+      } else {
+        console.error('Failed to sync with backend');
+      }
+    } catch (error) {
+      console.error('Error handling Firebase user:', error);
+    }
+  }
+
+  private setupEventListeners(): void {
+    // Login/Profile button
+    const loginButton = document.getElementById('loginButton') as HTMLButtonElement;
+    const profileButton = document.getElementById('profileButton') as HTMLButtonElement;
+    
+    if (loginButton) {
+      loginButton.addEventListener('click', () => this.showAuthModal());
+    }
+    
+    if (profileButton) {
+      profileButton.addEventListener('click', () => this.toggleProfileDropdown());
+    }
+
+    // Auth modal
+    const authModal = document.getElementById('authModal');
+    const closeAuthModal = document.getElementById('closeAuthModal');
+    
+    if (closeAuthModal) {
+      closeAuthModal.addEventListener('click', () => this.hideAuthModal());
+    }
+    
+    if (authModal) {
+      authModal.addEventListener('click', (e) => {
+        if (e.target === authModal) {
+          this.hideAuthModal();
+        }
+      });
+    }
+
+    // Form toggle
+    const authToggle = document.getElementById('authToggle');
+    if (authToggle) {
+      authToggle.addEventListener('click', () => this.toggleAuthMode());
+    }
+
+    // Login form
+    const loginForm = document.getElementById('loginForm') as HTMLFormElement;
+    if (loginForm) {
+      loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+    }
+
+    // Register form
+    const registerForm = document.getElementById('registerForm') as HTMLFormElement;
+    if (registerForm) {
+      registerForm.addEventListener('submit', (e) => this.handleRegister(e));
+    }
+
+    // Country to timezone mapping
+    const countrySelect = document.getElementById('country') as HTMLSelectElement;
+    if (countrySelect) {
+      countrySelect.addEventListener('change', () => this.updateTimezoneFromCountry());
+    }
+
+    // Social login buttons
+    const googleLogin = document.getElementById('googleLogin');
+    
+    if (googleLogin) {
+      googleLogin.addEventListener('click', () => this.handleSocialLogin('google'));
+    }
+
+    // Profile dropdown
+    const logout = document.getElementById('logout');
+    if (logout) {
+      logout.addEventListener('click', () => this.handleLogout());
+    }
+
+
+    // Close profile dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const profileDropdown = document.getElementById('userProfileDropdown');
+      if (profileDropdown && !profileDropdown.contains(e.target as Node) && 
+          !profileButton?.contains(e.target as Node)) {
+        profileDropdown.classList.add('hidden');
+      }
+    });
+  }
+
+  private showAuthModal(): void {
+    const authModal = document.getElementById('authModal');
+    if (authModal) {
+      authModal.classList.remove('hidden');
+      this.resetForms();
+    }
+  }
+
+  private hideAuthModal(): void {
+    const authModal = document.getElementById('authModal');
+    if (authModal) {
+      authModal.classList.add('hidden');
+    }
+  }
+
+  private toggleAuthMode(): void {
+    this.isLoginMode = !this.isLoginMode;
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const authModalTitle = document.getElementById('authModalTitle');
+    const authToggleText = document.getElementById('authToggleText');
+    const authToggle = document.getElementById('authToggle');
+
+    if (this.isLoginMode) {
+      loginForm?.classList.remove('hidden');
+      registerForm?.classList.add('hidden');
+      if (authModalTitle) authModalTitle.textContent = 'Sign In';
+      if (authToggleText) authToggleText.innerHTML = 'Don\'t have an account? <button id="authToggle" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-medium">Sign up</button>';
+    } else {
+      loginForm?.classList.add('hidden');
+      registerForm?.classList.remove('hidden');
+      if (authModalTitle) authModalTitle.textContent = 'Sign Up';
+      if (authToggleText) authToggleText.innerHTML = 'Already have an account? <button id="authToggle" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-medium">Sign in</button>';
+    }
+
+    // Re-attach event listener to new toggle button
+    const newAuthToggle = document.getElementById('authToggle');
+    if (newAuthToggle) {
+      newAuthToggle.addEventListener('click', () => this.toggleAuthMode());
+    }
+  }
+
+  private resetForms(): void {
+    const loginForm = document.getElementById('loginForm') as HTMLFormElement;
+    const registerForm = document.getElementById('registerForm') as HTMLFormElement;
+    
+    if (loginForm) loginForm.reset();
+    if (registerForm) registerForm.reset();
+  }
+
+  private async handleLogin(e: Event): Promise<void> {
+    e.preventDefault();
+    
+    const email = (document.getElementById('loginEmail') as HTMLInputElement)?.value;
+    const password = (document.getElementById('loginPassword') as HTMLInputElement)?.value;
+
+    if (!email || !password) {
+      this.showError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      if (!this.firebaseAuth) {
+        this.showError('Firebase is not initialized. Please refresh the page.');
+        return;
+      }
+
+      // Use Firebase for login
+      const userCredential = await this.firebaseAuth.signInWithEmailAndPassword(email, password);
+      
+      // Sync with backend
+      const idToken = await userCredential.user.getIdToken();
+      const response = await fetch('/api/auth/firebase-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName,
+          photoURL: userCredential.user.photoURL
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        this.currentUser = data.user;
+        this.authToken = data.token;
+        this.saveAuth();
+        this.updateUI();
+        this.hideAuthModal();
+        this.showSuccess('Login successful!');
+      } else {
+        this.showError(data.error || 'Login failed');
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      this.showError(this.getFirebaseErrorMessage(error.code));
+    }
+  }
+
+  private async handleRegister(e: Event): Promise<void> {
+    e.preventDefault();
+    
+    const name = (document.getElementById('registerName') as HTMLInputElement)?.value;
+    const email = (document.getElementById('registerEmail') as HTMLInputElement)?.value;
+    const password = (document.getElementById('registerPassword') as HTMLInputElement)?.value;
+    const country = (document.getElementById('registerCountry') as HTMLSelectElement)?.value;
+    const timezone = (document.getElementById('registerTimezone') as HTMLSelectElement)?.value;
+
+    if (!name || !email || !password) {
+      this.showError('Please fill in all required fields');
+      return;
+    }
+
+    // Validate password strength
+    if (!this.validatePassword(password)) {
+      this.showError('Password must be at least 8 characters with uppercase, lowercase, number, and special character');
+      return;
+    }
+
+    try {
+      if (!this.firebaseAuth) {
+        this.showError('Firebase is not initialized. Please refresh the page.');
+        return;
+      }
+
+      // Use Firebase for registration
+      const userCredential = await this.firebaseAuth.createUserWithEmailAndPassword(email, password);
+      
+      // Update display name
+      if (userCredential.user) {
+        await (userCredential.user as any).updateProfile({ displayName: name });
+      }
+
+      // Sync with backend
+      const idToken = await userCredential.user.getIdToken();
+      const response = await fetch('/api/auth/firebase-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: name,
+          photoURL: userCredential.user.photoURL,
+          country,
+          timezone
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        this.currentUser = data.user;
+        this.authToken = data.token;
+        this.saveAuth();
+        this.updateUI();
+        this.hideAuthModal();
+        this.showSuccess('Registration successful! Welcome!');
+      } else {
+        this.showError(data.error || 'Registration failed');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      this.showError(this.getFirebaseErrorMessage(error.code));
+    }
+  }
+
+  private async handleSocialLogin(provider: 'google'): Promise<void> {
+    if (!this.firebaseAuth) {
+      this.showError('Firebase is not initialized. Please refresh the page.');
+      return;
+    }
+
+    try {
+      const providerInstance = new firebase.auth.GoogleAuthProvider();
+      const result = await this.firebaseAuth.signInWithPopup(providerInstance);
+      
+      // Sync with backend
+      const idToken = await result.user.getIdToken();
+      const response = await fetch('/api/auth/firebase-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          uid: result.user.uid,
+          email: result.user.email,
+          displayName: result.user.displayName,
+          photoURL: result.user.photoURL
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        this.currentUser = data.user;
+        this.authToken = data.token;
+        this.saveAuth();
+        this.updateUI();
+        this.hideAuthModal();
+        this.showSuccess('Google login successful!');
+      } else {
+        this.showError(data.error || 'Login failed');
+      }
+      
+    } catch (error: any) {
+      console.error(`${provider} login error:`, error);
+      this.showError(this.getFirebaseErrorMessage(error.code));
+    }
+  }
+
+  private getFirebaseErrorMessage(errorCode: string): string {
+    const errorMessages: { [key: string]: string } = {
+      'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
+      'auth/cancelled-popup-request': 'Sign-in was cancelled.',
+      'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method.',
+      'auth/operation-not-allowed': 'This sign-in method is not enabled.',
+      'auth/network-request-failed': 'Network error. Please check your connection.',
+      'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+    };
+
+    return errorMessages[errorCode] || 'Authentication failed. Please try again.';
+  }
+
+  private updateTimezoneFromCountry(): void {
+    const countrySelect = document.getElementById('country') as HTMLSelectElement;
+    const timezoneSelect = document.getElementById('timezone') as HTMLSelectElement;
+    
+    if (!countrySelect || !timezoneSelect) return;
+    
+    const country = countrySelect.value;
+    const countryTimezoneMap: { [key: string]: string } = {
+      'India': 'Asia/Kolkata',
+      'United States': 'America/New_York',
+      'United Kingdom': 'Europe/London',
+      'Canada': 'America/Toronto',
+      'Australia': 'Australia/Sydney',
+      'Germany': 'Europe/Berlin',
+      'France': 'Europe/Paris',
+      'Japan': 'Asia/Tokyo',
+      'China': 'Asia/Shanghai',
+      'Brazil': 'America/Sao_Paulo',
+      'Russia': 'Europe/Moscow',
+      'South Africa': 'Africa/Johannesburg',
+      'Mexico': 'America/Mexico_City',
+      'Argentina': 'America/Argentina/Buenos_Aires',
+      'South Korea': 'Asia/Seoul',
+      'Singapore': 'Asia/Singapore',
+      'Thailand': 'Asia/Bangkok',
+      'Indonesia': 'Asia/Jakarta',
+      'Philippines': 'Asia/Manila',
+      'Malaysia': 'Asia/Kuala_Lumpur',
+      'New Zealand': 'Pacific/Auckland',
+      'Italy': 'Europe/Rome',
+      'Spain': 'Europe/Madrid',
+      'Netherlands': 'Europe/Amsterdam',
+      'Sweden': 'Europe/Stockholm',
+      'Norway': 'Europe/Oslo',
+      'Denmark': 'Europe/Copenhagen',
+      'Finland': 'Europe/Helsinki',
+      'Poland': 'Europe/Warsaw',
+      'Czech Republic': 'Europe/Prague',
+      'Hungary': 'Europe/Budapest',
+      'Greece': 'Europe/Athens',
+      'Turkey': 'Europe/Istanbul',
+      'Israel': 'Asia/Jerusalem',
+      'Saudi Arabia': 'Asia/Riyadh',
+      'UAE': 'Asia/Dubai',
+      'Egypt': 'Africa/Cairo',
+      'Nigeria': 'Africa/Lagos',
+      'Kenya': 'Africa/Nairobi',
+      'Chile': 'America/Santiago',
+      'Colombia': 'America/Bogota',
+      'Peru': 'America/Lima',
+      'Venezuela': 'America/Caracas',
+      'Ecuador': 'America/Guayaquil',
+      'Bolivia': 'America/La_Paz',
+      'Paraguay': 'America/Asuncion',
+      'Uruguay': 'America/Montevideo'
+    };
+    
+    const defaultTimezone = countryTimezoneMap[country] || 'UTC';
+    
+    // Set the timezone select value
+    timezoneSelect.value = defaultTimezone;
+  }
+
+  private async handleLogout(): Promise<void> {
+    try {
+      if (this.authToken) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.authToken}`,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      this.currentUser = null;
+      this.authToken = null;
+      this.clearAuth();
+      this.updateUI();
+      this.hideProfileDropdown();
+      this.showSuccess('Logged out successfully');
+    }
+  }
+
+  private toggleProfileDropdown(): void {
+    const profileDropdown = document.getElementById('userProfileDropdown');
+    if (profileDropdown) {
+      profileDropdown.classList.toggle('hidden');
+    }
+  }
+
+  private hideProfileDropdown(): void {
+    const profileDropdown = document.getElementById('userProfileDropdown');
+    if (profileDropdown) {
+      profileDropdown.classList.add('hidden');
+    }
+  }
+
+  private validatePassword(password: string): boolean {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    return password.length >= minLength && hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
+  }
+
+  private saveAuth(): void {
+    if (this.authToken && this.currentUser) {
+      localStorage.setItem('authToken', this.authToken);
+      localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+    }
+  }
+
+  private clearAuth(): void {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+  }
+
+  private updateUI(): void {
+    const loginButton = document.getElementById('loginButton');
+    const profileButton = document.getElementById('profileButton');
+    const profileDropdown = document.getElementById('userProfileDropdown');
+    const userName = document.getElementById('userName');
+    const userEmail = document.getElementById('userEmail');
+    const userAvatar = document.getElementById('userAvatar');
+    const profileAvatar = document.getElementById('profileAvatar');
+
+    // Hide both initially to prevent flash
+    if (loginButton) loginButton.classList.add('hidden');
+    if (profileButton) profileButton.classList.add('hidden');
+
+    if (this.currentUser) {
+      // User is logged in
+      if (profileButton) profileButton.classList.remove('hidden');
+      if (profileDropdown) profileDropdown.classList.add('hidden');
+
+      // Update user info
+      if (userName) userName.textContent = this.currentUser.name;
+      if (userEmail) userEmail.textContent = this.currentUser.email;
+      
+      const initials = this.currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+      if (userAvatar) userAvatar.textContent = initials;
+      if (profileAvatar) profileAvatar.textContent = initials;
+    } else {
+      // User is not logged in
+      if (loginButton) loginButton.classList.remove('hidden');
+      if (profileDropdown) profileDropdown.classList.add('hidden');
+    }
+  }
+
+  private showError(message: string): void {
+    // Create a simple toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      document.body.removeChild(toast);
+    }, 5000);
+  }
+
+  private showSuccess(message: string): void {
+    // Create a simple toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      document.body.removeChild(toast);
+    }, 3000);
+  }
+
+  // Public methods
+  public isAuthenticated(): boolean {
+    return this.currentUser !== null && this.authToken !== null;
+  }
+
+  public getCurrentUser(): User | null {
+    return this.currentUser;
+  }
+
+  public getAuthToken(): string | null {
+    return this.authToken;
+  }
+
+  public async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    const headers: any = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  }
+}
+
+// Initialize authentication manager
+const authManager = new AuthManager();
 
 // Start the app when DOM is loaded
 if (document.readyState === 'loading') {
