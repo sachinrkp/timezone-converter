@@ -676,7 +676,7 @@ app.get('/api/custom-endpoint', (req, res) => {
 - **Icons**: Custom stopwatch favicon design
 - **Inspiration**: Built to solve real-world timezone conversion challenges
 - **Community**: Thanks to all contributors and users providing feedback
-- **Open Source**: Built with love for the developer community
+- **Open Source**: Built with love for the developer community 
 
 ---
 
