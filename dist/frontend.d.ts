@@ -188,7 +188,7 @@ interface FirebaseUser {
     providerId: string;
 }
 interface User {
-    id: number;
+    id: string;
     email: string;
     name: string;
     country: string;
@@ -198,11 +198,6 @@ interface User {
     created_at: string;
     last_login?: string;
 }
-interface AuthResponse {
-    user: User;
-    token: string;
-    message: string;
-}
 declare class AuthManager {
     private currentUser;
     private authToken;
@@ -211,6 +206,7 @@ declare class AuthManager {
     constructor();
     private initializeFirebase;
     private loadStoredAuth;
+    private buildUserFromFirebase;
     private handleFirebaseUser;
     private setupEventListeners;
     private showAuthModal;
@@ -222,9 +218,6 @@ declare class AuthManager {
     private handleSocialLogin;
     private getFirebaseErrorMessage;
     private updateTimezoneFromCountry;
-    private handleLogout;
-    private toggleProfileDropdown;
-    private hideProfileDropdown;
     private validatePassword;
     private saveAuth;
     private clearAuth;

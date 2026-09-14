@@ -1,24 +1,19 @@
 import express from 'express';
+import fetch from 'node-fetch';
 import path from 'path';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import cors from 'cors';
-import session from 'express-session';
-import { EncryptionService } from './services/encryptionService.js';
-// Import routes
-// Temporarily disabled for testing
-// import authRoutes from './routes/auth.js';
-// import calendarRoutes from './routes/calendar.js';
-// import notesRoutes from './routes/notes.js';
-// Import services - Temporarily disabled for testing
-// import { database } from './database/database.js';
-// import { holidayService } from './services/holidayService.js';
-dotenv.config();
+import { z } from 'zod';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Resolve .env relative to this file (not process.cwd()), so the server
+// finds its config regardless of which directory it's launched from.
+dotenv.config({ path: path.join(__dirname, '../.env') });
 const app = express();
 const PORT = process.env.PORT || 3000;
+const TIMEZONEDB_API_KEY = process.env.TIMEZONEDB_API_KEY;
 // Middleware
 app.use(cors({
     origin: process.env.NODE_ENV === 'production'
@@ -26,28 +21,91 @@ app.use(cors({
         : ['http://localhost:3000', 'http://localhost:5173'],
     credentials: true
 }));
+// Security headers. The CSP allows 'unsafe-inline' for script/style because every
+// page's UI logic lives in inline <script>/<style> blocks (no nonce/hash infra
+// exists) - real value here is still restricting which *origins* can be reached
+// at all, which blocks an injected <script src="https://evil.example"> or a
+// fetch() exfiltrating data to an arbitrary domain even if a future XSS bug slips
+// past escaping.
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Content-Security-Policy', [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net",
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "img-src 'self' data: https://api.iconify.design",
+        "font-src 'self' data:",
+        "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://data.fixer.io https://api.exchangerate-api.com",
+        "frame-src https://*.firebaseapp.com https://accounts.google.com",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "frame-ancestors 'self'"
+    ].join('; '));
+    next();
+});
 app.use(express.static(path.join(__dirname, '../public'), {
-    setHeaders: (res, path) => {
-        if (path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.html')) {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            // HTML shells should always be revalidated so deploys show up immediately
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
+        }
+        else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+            // 'no-cache' still lets the browser cache the file, but forces a
+            // revalidation (cheap 304 if unchanged) on every load instead of trusting
+            // a max-age window - so a fresh deploy is never masked by a stale cache.
+            res.setHeader('Cache-Control', 'no-cache');
         }
     }
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-// Session configuration
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-super-secret-session-key-change-in-production',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+// Basic per-IP rate limiting on the API - without this, a single client could
+// flood /api/convert-time and exhaust the TimezoneDB free-tier quota for everyone.
+const requestCounts = new Map();
+const RATE_LIMIT = 100; // requests per window, per IP
+const RATE_WINDOW = 60 * 60 * 1000; // 1 hour
+app.use('/api', (req, res, next) => {
+    const clientId = req.ip || 'unknown';
+    const now = Date.now();
+    const clientData = requestCounts.get(clientId);
+    if (!clientData || now > clientData.resetTime) {
+        requestCounts.set(clientId, { count: 1, resetTime: now + RATE_WINDOW });
+        next();
+        return;
     }
-}));
+    if (clientData.count >= RATE_LIMIT) {
+        res.status(429).json({
+            error: 'Rate limit exceeded. Please try again later.',
+            retryAfter: Math.ceil((clientData.resetTime - now) / 1000)
+        });
+        return;
+    }
+    clientData.count++;
+    next();
+});
+const ConvertTimeSchema = z.object({
+    fromZone: z.string().min(1, 'From timezone is required'),
+    toZone: z.string().min(1, 'To timezone is required'),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
+    time: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format'),
+});
+const timezoneCache = new Map();
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const fetchWithCache = async (url, cacheKey) => {
+    const cached = timezoneCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        return cached.data;
+    }
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+    const data = await response.json();
+    timezoneCache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
+};
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({
@@ -56,309 +114,74 @@ app.get('/api/health', (req, res) => {
         uptime: process.uptime()
     });
 });
-// Current time endpoint
+// Current server time (client falls back to local time if this is unreachable)
 app.get('/api/current-time', (req, res) => {
     const now = new Date();
-    const utcTime = now.toISOString();
-    const localTime = now.toLocaleString();
     res.json({
-        utc: utcTime,
-        local: localTime,
+        utc: now.toISOString(),
+        local: now.toLocaleString(),
         timestamp: now.getTime()
     });
 });
-// Read timezones from file
+// Read timezones from the bundled file (used to populate the picker UI)
 app.get('/api/timezones', (req, res) => {
     try {
         const timezoneFile = path.join(__dirname, '../public/timezones.txt');
         const timezoneData = fs.readFileSync(timezoneFile, 'utf8');
-        const zones = timezoneData.split('\n').filter(zone => zone.trim() !== '');
-        console.log(`📋 Loaded ${zones.length} timezones from file`);
+        const zones = timezoneData.split('\n').map(z => z.trim()).filter(Boolean);
         res.json({ zones });
     }
     catch (error) {
-        console.error('❌ Error reading timezones file:', error);
-        // Fallback to basic timezones
-        const fallbackZones = [
-            'America/New_York', 'America/Los_Angeles', 'Europe/London',
-            'Asia/Tokyo', 'Asia/Kolkata', 'Australia/Sydney', 'UTC'
-        ];
-        res.json({ zones: fallbackZones });
+        console.error('Error reading timezones file:', error);
+        res.status(500).json({ error: 'Failed to load timezones' });
     }
 });
-// API Routes - Temporarily disabled for testing
-// app.use('/api/auth', authRoutes);
-// app.use('/api/calendar', calendarRoutes);
-// app.use('/api/notes', notesRoutes);
-// Simple authentication endpoints for testing
-app.post('/api/auth/register', (req, res) => {
+// Real time conversion, backed by TimeZoneDB (handles DST correctly)
+app.post('/api/convert-time', async (req, res, next) => {
     try {
-        const { email, password, name, country, timezone } = req.body;
-        // Basic validation
-        if (!email || !password || !name) {
-            return res.status(400).json({
-                error: 'Email, password, and name are required'
+        if (!TIMEZONEDB_API_KEY) {
+            res.status(503).json({ error: 'Timezone conversion is not configured on the server' });
+            return;
+        }
+        const validation = ConvertTimeSchema.safeParse(req.body);
+        if (!validation.success) {
+            res.status(400).json({
+                error: 'Invalid input data',
+                details: validation.error.issues
             });
+            return;
         }
-        // Mock successful registration
-        return res.status(201).json({
-            message: 'User registered successfully',
-            user: {
-                id: Math.floor(Math.random() * 10000),
-                email,
-                name,
-                country: country || 'US',
-                timezone: timezone || 'UTC'
-            },
-            token: 'mock-jwt-token-' + Date.now()
+        const { fromZone, toZone, date, time } = validation.data;
+        const inputDate = new Date(`${date}T${time}:00`);
+        if (isNaN(inputDate.getTime())) {
+            res.status(400).json({ error: 'Invalid date or time provided' });
+            return;
+        }
+        const [fromData, toData] = await Promise.all([
+            fetchWithCache(`https://api.timezonedb.com/v2.1/get-time-zone?key=${TIMEZONEDB_API_KEY}&format=json&by=zone&zone=${encodeURIComponent(fromZone)}`, `zone:${fromZone}`),
+            fetchWithCache(`https://api.timezonedb.com/v2.1/get-time-zone?key=${TIMEZONEDB_API_KEY}&format=json&by=zone&zone=${encodeURIComponent(toZone)}`, `zone:${toZone}`)
+        ]);
+        const offsetDiff = (toData.gmtOffset - fromData.gmtOffset) * 1000;
+        const converted = new Date(inputDate.getTime() + offsetDiff);
+        res.json({
+            convertedTime: converted.toLocaleString(),
+            fromCurrent: new Date(fromData.timestamp * 1000).toLocaleString(),
+            toCurrent: new Date(toData.timestamp * 1000).toLocaleString(),
+            dst: toData.dst === '1'
         });
     }
-    catch (error) {
-        console.error('Registration error:', error);
-        return res.status(500).json({ error: 'Registration failed' });
+    catch (err) {
+        next(err);
     }
 });
-app.post('/api/auth/login', (req, res) => {
-    try {
-        const { email, password } = req.body;
-        // Basic validation
-        if (!email || !password) {
-            return res.status(400).json({
-                error: 'Email and password are required'
-            });
-        }
-        // Mock successful login
-        return res.json({
-            message: 'Login successful',
-            user: {
-                id: Math.floor(Math.random() * 10000),
-                email,
-                name: 'Test User',
-                country: 'US',
-                timezone: 'UTC'
-            },
-            token: 'mock-jwt-token-' + Date.now()
-        });
-    }
-    catch (error) {
-        console.error('Login error:', error);
-        return res.status(500).json({ error: 'Login failed' });
-    }
-});
-app.post('/api/auth/firebase-sync', (req, res) => {
-    try {
-        const { uid, email, displayName, photoURL, country, timezone, providerId, idToken } = req.body;
-        console.log('Firebase sync request:', { uid, email, displayName, country, timezone });
-        // Mock Firebase sync - create or update user
-        const user = {
-            id: uid || Math.floor(Math.random() * 10000),
-            email: email || 'firebase@example.com',
-            name: displayName || 'Firebase User',
-            country: country || 'IN',
-            timezone: timezone || 'Asia/Kolkata',
-            photoURL: photoURL || null,
-            providerId: providerId || 'firebase',
-            createdAt: new Date().toISOString()
-        };
-        return res.json({
-            message: 'Firebase sync successful',
-            user: user,
-            token: 'mock-jwt-token-' + Date.now()
-        });
-    }
-    catch (error) {
-        console.error('Firebase sync error:', error);
-        return res.status(500).json({ error: 'Firebase sync failed' });
-    }
-});
-// File-based storage for notes data (in production, use a real database)
-const NOTES_DATA_FILE = path.join(__dirname, 'notes-data.json');
-const ENCRYPTED_NOTES_FILE = path.join(__dirname, 'encrypted-notes.dat');
-// Encryption configuration
-const MASTER_ENCRYPTION_KEY = process.env.MASTER_ENCRYPTION_KEY || EncryptionService.generateKey();
-console.log('📁 Notes data file path:', NOTES_DATA_FILE);
-console.log('📁 Current working directory:', process.cwd());
-console.log('📁 __dirname:', __dirname);
-// Load existing data from file (try encrypted first, fallback to plain text)
-let notesStorage = new Map();
-loadEncryptedNotesData();
-// ⚠️  SECURITY WARNING: Current implementation stores user data in plain text
-// This is NOT secure for production use. User notes are visible in:
-// 1. File system (dist/notes-data.json)
-// 2. Developer tools (network requests)
-// 3. Server logs
-// 
-// RECOMMENDED SECURITY IMPROVEMENTS:
-// 1. Encrypt all user data with AES-256 before storage
-// 2. Use proper database (PostgreSQL/MongoDB) instead of JSON files
-// 3. Implement proper access controls and authentication
-// 4. Add data validation and sanitization
-// 5. Use HTTPS in production
-// 6. Implement proper session management
-// Save data to file (encrypted)
-function saveNotesToFile() {
-    try {
-        // Ensure directory exists
-        const dir = path.dirname(ENCRYPTED_NOTES_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-            console.log('📁 Created directory:', dir);
-        }
-        // Encrypt the data before saving
-        const data = Object.fromEntries(notesStorage);
-        const encryptedData = EncryptionService.encryptObject(data, MASTER_ENCRYPTION_KEY);
-        fs.writeFileSync(ENCRYPTED_NOTES_FILE, encryptedData);
-        console.log('💾 Encrypted notes data saved to file:', ENCRYPTED_NOTES_FILE);
-        console.log('💾 File size:', fs.statSync(ENCRYPTED_NOTES_FILE).size, 'bytes');
-        // Also save a backup in plain text for development (remove in production)
-        if (process.env.NODE_ENV === 'development') {
-            fs.writeFileSync(NOTES_DATA_FILE, JSON.stringify(data, null, 2));
-            console.log('💾 Development backup saved to:', NOTES_DATA_FILE);
-        }
-    }
-    catch (error) {
-        console.error('❌ Error saving notes data:', error);
-    }
-}
-// Load encrypted data from file
-function loadEncryptedNotesData() {
-    try {
-        if (fs.existsSync(ENCRYPTED_NOTES_FILE)) {
-            const encryptedData = fs.readFileSync(ENCRYPTED_NOTES_FILE, 'utf8');
-            const data = EncryptionService.decryptObject(encryptedData, MASTER_ENCRYPTION_KEY);
-            notesStorage = new Map(Object.entries(data));
-            console.log('📁 Loaded encrypted notes data from file:', ENCRYPTED_NOTES_FILE);
-            console.log('📁 Loaded', notesStorage.size, 'entries');
-        }
-        else {
-            console.log('📁 No encrypted notes data file found, starting fresh');
-        }
-    }
-    catch (error) {
-        console.error('❌ Error loading encrypted notes data:', error);
-        // Fallback to plain text file if encryption fails
-        loadPlainTextNotesData();
-    }
-}
-// Fallback function to load plain text data
-function loadPlainTextNotesData() {
-    try {
-        if (fs.existsSync(NOTES_DATA_FILE)) {
-            const data = JSON.parse(fs.readFileSync(NOTES_DATA_FILE, 'utf8'));
-            notesStorage = new Map(Object.entries(data));
-            console.log('📁 Loaded plain text notes data from file:', NOTES_DATA_FILE);
-            console.log('📁 Loaded', notesStorage.size, 'entries');
-        }
-        else {
-            console.log('📁 No existing notes data file found, starting fresh');
-        }
-    }
-    catch (error) {
-        console.error('❌ Error loading notes data:', error);
-        notesStorage = new Map();
-    }
-}
-// Simple notes storage endpoint for testing
-app.get('/api/notes', (req, res) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-        const token = authHeader.split(' ')[1];
-        if (!token) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-        // Extract UID from query parameter or use token as fallback
-        const uid = req.query?.uid || token;
-        const userData = notesStorage.get(uid) || {
-            notebooks: [],
-            sections: [],
-            pages: []
-        };
-        console.log('📝 Notes data requested for UID:', uid);
-        console.log('📊 Returning data:', {
-            notebooks: userData.notebooks?.length || 0,
-            sections: userData.sections?.length || 0,
-            pages: userData.pages?.length || 0
-        });
-        return res.json(userData);
-    }
-    catch (error) {
-        console.error('Notes fetch error:', error);
-        return res.status(500).json({ error: 'Failed to fetch notes' });
-    }
-});
-app.post('/api/notes', (req, res) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-        const token = authHeader.split(' ')[1];
-        if (!token) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-        const { notebooks, sections, pages, uid } = req.body;
-        // Use UID from request body, fallback to token
-        const userUid = uid || token;
-        // Check if this is empty data (all arrays are empty)
-        const isEmptyData = (!notebooks || notebooks.length === 0) &&
-            (!sections || sections.length === 0) &&
-            (!pages || pages.length === 0);
-        // Only save if we have actual data, or if this is the first time (no existing data)
-        const existingData = notesStorage.get(userUid);
-        const hasExistingData = existingData &&
-            (existingData.notebooks?.length > 0 ||
-                existingData.sections?.length > 0 ||
-                existingData.pages?.length > 0);
-        if (isEmptyData && hasExistingData) {
-            console.log('⚠️ Ignoring empty data - keeping existing data for UID:', userUid);
-            return res.json({ success: true, message: 'Empty data ignored - existing data preserved' });
-        }
-        const userData = {
-            notebooks: notebooks || [],
-            sections: sections || [],
-            pages: pages || []
-        };
-        // Store data with user's UID as key
-        notesStorage.set(userUid, userData);
-        // Save to file
-        saveNotesToFile();
-        console.log('💾 Notes data saved for UID:', userUid);
-        console.log('📊 Stored data:', {
-            notebooks: userData.notebooks?.length || 0,
-            sections: userData.sections?.length || 0,
-            pages: userData.pages?.length || 0
-        });
-        return res.json({ success: true, message: 'Notes saved successfully' });
-    }
-    catch (error) {
-        console.error('Notes save error:', error);
-        return res.status(500).json({ error: 'Failed to save notes' });
-    }
-});
-// Logout endpoint
-app.post('/api/auth/logout', (req, res) => {
-    try {
-        console.log('👋 User logged out');
-        res.json({ success: true, message: 'Logged out successfully' });
-    }
-    catch (error) {
-        console.error('Logout error:', error);
-        res.status(500).json({ error: 'Logout failed' });
-    }
-});
-// API configuration endpoint
+// Public client config (Firebase web config values are not secret - they're
+// protected by Firestore/Auth security rules and authorized-domain checks,
+// not by hiding them - but we still serve them from env vars so they're not
+// hardcoded across every HTML file).
 app.get('/api/config', (req, res) => {
-    const config = {
+    res.json({
         fixerApiKey: process.env.FIXER_API_KEY || null,
         hasFixerApiKey: !!process.env.FIXER_API_KEY,
-        googleClientId: process.env.GOOGLE_CLIENT_ID || null,
-        microsoftClientId: process.env.MICROSOFT_CLIENT_ID || null,
-        hasGoogleAuth: !!process.env.GOOGLE_CLIENT_ID,
-        hasMicrosoftAuth: !!process.env.MICROSOFT_CLIENT_ID,
-        // Firebase configuration
         firebaseApiKey: process.env.FIREBASE_API_KEY || null,
         firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN || null,
         firebaseProjectId: process.env.FIREBASE_PROJECT_ID || null,
@@ -366,87 +189,8 @@ app.get('/api/config', (req, res) => {
         firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || null,
         firebaseAppId: process.env.FIREBASE_APP_ID || null,
         hasFirebaseAuth: !!(process.env.FIREBASE_API_KEY && process.env.FIREBASE_PROJECT_ID)
-    };
-    res.json(config);
-});
-// Holiday API endpoints - Temporarily disabled
-// app.get('/api/holidays/:country', async (req, res) => {
-//   try {
-//     const { country } = req.params;
-//     const { year } = req.query;
-//     const currentYear = year ? parseInt(year as string) : new Date().getFullYear();
-//     
-//     const holidays = await holidayService.getHolidays(country, currentYear);
-//     
-//     res.json({
-//       country: country.toUpperCase(),
-//       year: currentYear,
-//       holidays: holidays.map(holiday => ({
-//         id: holiday.id,
-//         name: holiday.holiday_name,
-//         date: holiday.holiday_date,
-//         type: holiday.holiday_type
-//       }))
-//     });
-//   } catch (error) {
-//     console.error('Get holidays error:', error);
-//     res.status(500).json({ error: 'Failed to fetch holidays' });
-//   }
-// });
-// app.get('/api/holidays/:country/upcoming', async (req, res) => {
-//   try {
-//     const { country } = req.params;
-//     const { limit } = req.query;
-//     const limitNum = limit ? parseInt(limit as string) : 10;
-//     
-//     const holidays = await holidayService.getUpcomingHolidays(country, limitNum);
-//     
-//     res.json({
-//       country: country.toUpperCase(),
-//       upcomingHolidays: holidays.map(holiday => ({
-//         id: holiday.id,
-//         name: holiday.holiday_name,
-//         date: holiday.holiday_date,
-//         type: holiday.holiday_type
-//       }))
-//     });
-//   } catch (error) {
-//     console.error('Get upcoming holidays error:', error);
-//     res.status(500).json({ error: 'Failed to fetch upcoming holidays' });
-//   }
-// });
-// app.get('/api/holidays/supported-countries', (req, res) => {
-//   const countries = holidayService.getSupportedCountries();
-//   res.json({ countries });
-// });
-// Mock conversion endpoint (keeping existing functionality)
-app.post('/api/convert-time', (req, res) => {
-    const { fromZone, toZone, date, time } = req.body;
-    // Simple mock conversion
-    const inputDate = new Date(`${date}T${time}:00`);
-    const convertedDate = new Date(inputDate.getTime() + 5 * 60 * 60 * 1000); // Add 5 hours as mock
-    res.json({
-        convertedTime: convertedDate.toLocaleString(),
-        fromCurrent: new Date().toLocaleString(),
-        toCurrent: new Date().toLocaleString(),
-        dst: false
     });
 });
-// Database statistics endpoint - Temporarily disabled
-// app.get('/api/stats', async (req, res) => {
-//   try {
-//     const stats = await database.getDatabaseStats();
-//     const holidayStats = await holidayService.getHolidayStats();
-//     
-//     res.json({
-//       database: stats,
-//       holidays: holidayStats
-//     });
-//   } catch (error) {
-//     console.error('Get stats error:', error);
-//     res.status(500).json({ error: 'Failed to fetch statistics' });
-//   }
-// });
 // Serve the main page
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
@@ -460,20 +204,12 @@ app.use((err, req, res, next) => {
     });
 });
 // 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
-// Start the server
 app.listen(PORT, () => {
     console.log(`✅ Server running at http://localhost:${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-    // Initialize database and cleanup expired sessions - Temporarily disabled
-    // try {
-    //   await database.cleanupExpiredSessions();
-    //   console.log('🧹 Cleaned up expired sessions');
-    // } catch (error) {
-    //   console.error('❌ Error during startup cleanup:', error);
-    // }
 });
 export default app;
 //# sourceMappingURL=simple-server.js.map
