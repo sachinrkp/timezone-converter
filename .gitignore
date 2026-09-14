@@ -1,5 +1,5 @@
 node_modules/
-".env" 
+.env
 
 # User data files - contains sensitive information
 dist/notes-data.json
