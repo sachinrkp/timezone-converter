@@ -1732,7 +1732,12 @@ const setupEventListeners = (): void => {
       const hh = timeParts[0];
       const mm = timeParts[1];
 
-      if (!y || !mo || !d || !hh || !mm || isNaN(y) || isNaN(mo) || isNaN(d) || isNaN(hh) || isNaN(mm)) {
+      // Note: use === undefined / isNaN here, not truthiness - hh/mm can legitimately
+      // be 0 (midnight, or an on-the-hour time), which !hh/!mm would wrongly reject.
+      if (
+        y === undefined || mo === undefined || d === undefined || hh === undefined || mm === undefined ||
+        isNaN(y) || isNaN(mo) || isNaN(d) || isNaN(hh) || isNaN(mm)
+      ) {
         utils.showError('Invalid date or time format');
         return;
       }
@@ -2073,18 +2078,20 @@ const initApp = async (): Promise<void> => {
     console.log('🔍 Looking for Kolkata:', zones.includes('Asia/Kolkata'));
     appState.allZones = zones;
 
-    // Initialize autocomplete handlers
-    const sourceAutocomplete = new AutocompleteHandler(elements.sourceAutocomplete, elements.sourceDropdown);
-    const targetAutocomplete = new AutocompleteHandler(elements.targetAutocomplete, elements.targetDropdown);
-    
-    // Set city mappings for autocomplete
-    sourceAutocomplete.setCityMappings(utils.cityTimezoneCache);
-    targetAutocomplete.setCityMappings(utils.cityTimezoneCache);
-    
-    console.log('⚙️ Setting autocomplete options...');
-    sourceAutocomplete.setOptions(zones);
-    targetAutocomplete.setOptions(zones);
-    console.log('✅ Autocomplete initialized with', zones.length, 'timezones');
+    // Initialize autocomplete handlers (only present on the home page's Timezone tab)
+    if (elements.sourceAutocomplete && elements.sourceDropdown && elements.targetAutocomplete && elements.targetDropdown) {
+      const sourceAutocomplete = new AutocompleteHandler(elements.sourceAutocomplete, elements.sourceDropdown);
+      const targetAutocomplete = new AutocompleteHandler(elements.targetAutocomplete, elements.targetDropdown);
+
+      // Set city mappings for autocomplete
+      sourceAutocomplete.setCityMappings(utils.cityTimezoneCache);
+      targetAutocomplete.setCityMappings(utils.cityTimezoneCache);
+
+      console.log('⚙️ Setting autocomplete options...');
+      sourceAutocomplete.setOptions(zones);
+      targetAutocomplete.setOptions(zones);
+      console.log('✅ Autocomplete initialized with', zones.length, 'timezones');
+    }
 
     // Initialize epoch converter autocomplete
     const humanTimezoneInput = document.getElementById('humanTimezone') as HTMLInputElement;
@@ -2181,7 +2188,7 @@ interface FirebaseUser {
 }
 
 interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
   country: string;
@@ -2190,12 +2197,6 @@ interface User {
   provider: string;
   created_at: string;
   last_login?: string;
-}
-
-interface AuthResponse {
-  user: User;
-  token: string;
-  message: string;
 }
 
 class AuthManager {
@@ -2208,6 +2209,8 @@ class AuthManager {
     this.initializeFirebase();
     this.setupEventListeners();
     this.updateUI();
+    // Lets the shared nav's Sign In button (public/components/nav.js) open this page's auth modal.
+    (window as any).openAuthModal = () => this.showAuthModal();
   }
 
   private async initializeFirebase(): Promise<void> {
@@ -2283,53 +2286,43 @@ class AuthManager {
     }
   }
 
+  // Firebase Auth is the real identity system - there is no backend "sync" step
+  // anymore. Country/timezone are preferences (not identity), so they're read
+  // from the same 'userData' localStorage entry that the profile page writes to.
+  private buildUserFromFirebase(firebaseUser: any, overrides?: { country?: string | undefined; timezone?: string | undefined }): User {
+    const savedProfile = JSON.parse(localStorage.getItem('userData') || '{}');
+
+    const user: User = {
+      id: firebaseUser.uid,
+      email: firebaseUser.email || '',
+      name: firebaseUser.displayName || firebaseUser.email || 'User',
+      country: overrides?.country || savedProfile.countryCode || 'US',
+      timezone: overrides?.timezone || savedProfile.timezone || 'UTC',
+      provider: firebaseUser.providerData?.[0]?.providerId || 'firebase',
+      created_at: firebaseUser.metadata?.creationTime || new Date().toISOString()
+    };
+
+    if (firebaseUser.photoURL) {
+      user.profile_picture = firebaseUser.photoURL;
+    }
+
+    return user;
+  }
+
   private async handleFirebaseUser(firebaseUser: any): Promise<void> {
     try {
-      // Get Firebase ID token
-      const idToken = await firebaseUser.getIdToken();
-      
-      // Sync with our backend
-      const response = await fetch('/api/auth/firebase-sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-          providerId: firebaseUser.providerData[0]?.providerId || 'firebase',
-          idToken: idToken
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        this.currentUser = data.user;
-        this.authToken = data.token;
-        this.saveAuth();
-        this.updateUI();
-      } else {
-        console.error('Failed to sync with backend');
-      }
+      this.authToken = await firebaseUser.getIdToken();
+      this.currentUser = this.buildUserFromFirebase(firebaseUser);
+      this.saveAuth();
+      this.updateUI();
     } catch (error) {
       console.error('Error handling Firebase user:', error);
     }
   }
 
   private setupEventListeners(): void {
-    // Login/Profile button
-    const loginButton = document.getElementById('loginButton') as HTMLButtonElement;
-    const profileButton = document.getElementById('profileButton') as HTMLButtonElement;
-    
-    if (loginButton) {
-      loginButton.addEventListener('click', () => this.showAuthModal());
-    }
-    
-    if (profileButton) {
-      profileButton.addEventListener('click', () => this.toggleProfileDropdown());
-    }
+    // Sign In is now the shared nav's button (public/components/nav.js) - it calls
+    // window.openAuthModal(), wired up at the bottom of this class's constructor.
 
     // Auth modal
     const authModal = document.getElementById('authModal');
@@ -2378,21 +2371,6 @@ class AuthManager {
       googleLogin.addEventListener('click', () => this.handleSocialLogin('google'));
     }
 
-    // Profile dropdown
-    const logout = document.getElementById('logout');
-    if (logout) {
-      logout.addEventListener('click', () => this.handleLogout());
-    }
-
-
-    // Close profile dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      const profileDropdown = document.getElementById('userProfileDropdown');
-      if (profileDropdown && !profileDropdown.contains(e.target as Node) && 
-          !profileButton?.contains(e.target as Node)) {
-        profileDropdown.classList.add('hidden');
-      }
-    });
   }
 
   private showAuthModal(): void {
@@ -2464,34 +2442,13 @@ class AuthManager {
 
       // Use Firebase for login
       const userCredential = await this.firebaseAuth.signInWithEmailAndPassword(email, password);
-      
-      // Sync with backend
-      const idToken = await userCredential.user.getIdToken();
-      const response = await fetch('/api/auth/firebase-sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          uid: userCredential.user.uid,
-          email: userCredential.user.email,
-          displayName: userCredential.user.displayName,
-          photoURL: userCredential.user.photoURL
-        }),
-      });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        this.currentUser = data.user;
-        this.authToken = data.token;
-        this.saveAuth();
-        this.updateUI();
-        this.hideAuthModal();
-        this.showSuccess('Login successful!');
-      } else {
-        this.showError(data.error || 'Login failed');
-      }
+      this.authToken = await userCredential.user.getIdToken();
+      this.currentUser = this.buildUserFromFirebase(userCredential.user);
+      this.saveAuth();
+      this.updateUI();
+      this.hideAuthModal();
+      this.showSuccess('Login successful!');
     } catch (error: any) {
       console.error('Login error:', error);
       this.showError(this.getFirebaseErrorMessage(error.code));
@@ -2532,35 +2489,27 @@ class AuthManager {
         await (userCredential.user as any).updateProfile({ displayName: name });
       }
 
-      // Sync with backend
-      const idToken = await userCredential.user.getIdToken();
-      const response = await fetch('/api/auth/firebase-sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          uid: userCredential.user.uid,
-          email: userCredential.user.email,
-          displayName: name,
-          photoURL: userCredential.user.photoURL,
-          country,
-          timezone
-        }),
-      });
+      this.authToken = await userCredential.user.getIdToken();
+      this.currentUser = this.buildUserFromFirebase(userCredential.user, { country, timezone });
 
-      const data = await response.json();
+      // Keep the profile page's country/timezone selector in sync with what was picked here
+      const countrySelectEl = document.getElementById('registerCountry') as HTMLSelectElement;
+      localStorage.setItem('userData', JSON.stringify({
+        country: countrySelectEl?.selectedOptions[0]?.text || country,
+        countryCode: country,
+        timezone
+      }));
 
-      if (response.ok) {
-        this.currentUser = data.user;
-        this.authToken = data.token;
-        this.saveAuth();
-        this.updateUI();
-        this.hideAuthModal();
-        this.showSuccess('Registration successful! Welcome!');
-      } else {
-        this.showError(data.error || 'Registration failed');
+      try {
+        await userCredential.user.sendEmailVerification();
+      } catch (verificationError) {
+        console.error('Failed to send verification email:', verificationError);
       }
+
+      this.saveAuth();
+      this.updateUI();
+      this.hideAuthModal();
+      this.showSuccess('Account created! Check your email to verify your address.');
     } catch (error: any) {
       console.error('Registration error:', error);
       this.showError(this.getFirebaseErrorMessage(error.code));
@@ -2576,35 +2525,13 @@ class AuthManager {
     try {
       const providerInstance = new firebase.auth.GoogleAuthProvider();
       const result = await this.firebaseAuth.signInWithPopup(providerInstance);
-      
-      // Sync with backend
-      const idToken = await result.user.getIdToken();
-      const response = await fetch('/api/auth/firebase-sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          uid: result.user.uid,
-          email: result.user.email,
-          displayName: result.user.displayName,
-          photoURL: result.user.photoURL
-        }),
-      });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        this.currentUser = data.user;
-        this.authToken = data.token;
-        this.saveAuth();
-        this.updateUI();
-        this.hideAuthModal();
-        this.showSuccess('Google login successful!');
-      } else {
-        this.showError(data.error || 'Login failed');
-      }
-      
+      this.authToken = await result.user.getIdToken();
+      this.currentUser = this.buildUserFromFirebase(result.user);
+      this.saveAuth();
+      this.updateUI();
+      this.hideAuthModal();
+      this.showSuccess('Google login successful!');
     } catch (error: any) {
       console.error(`${provider} login error:`, error);
       this.showError(this.getFirebaseErrorMessage(error.code));
@@ -2687,42 +2614,6 @@ class AuthManager {
     timezoneSelect.value = defaultTimezone;
   }
 
-  private async handleLogout(): Promise<void> {
-    try {
-      if (this.authToken) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.authToken}`,
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      this.currentUser = null;
-      this.authToken = null;
-      this.clearAuth();
-      this.updateUI();
-      this.hideProfileDropdown();
-      this.showSuccess('Logged out successfully');
-    }
-  }
-
-  private toggleProfileDropdown(): void {
-    const profileDropdown = document.getElementById('userProfileDropdown');
-    if (profileDropdown) {
-      profileDropdown.classList.toggle('hidden');
-    }
-  }
-
-  private hideProfileDropdown(): void {
-    const profileDropdown = document.getElementById('userProfileDropdown');
-    if (profileDropdown) {
-      profileDropdown.classList.add('hidden');
-    }
-  }
-
   private validatePassword(password: string): boolean {
     const minLength = 8;
     const hasUpperCase = /[A-Z]/.test(password);
@@ -2746,34 +2637,11 @@ class AuthManager {
   }
 
   private updateUI(): void {
-    const loginButton = document.getElementById('loginButton');
-    const profileButton = document.getElementById('profileButton');
-    const profileDropdown = document.getElementById('userProfileDropdown');
-    const userName = document.getElementById('userName');
-    const userEmail = document.getElementById('userEmail');
-    const userAvatar = document.getElementById('userAvatar');
-    const profileAvatar = document.getElementById('profileAvatar');
-
-    // Hide both initially to prevent flash
-    if (loginButton) loginButton.classList.add('hidden');
-    if (profileButton) profileButton.classList.add('hidden');
-
-    if (this.currentUser) {
-      // User is logged in
-      if (profileButton) profileButton.classList.remove('hidden');
-      if (profileDropdown) profileDropdown.classList.add('hidden');
-
-      // Update user info
-      if (userName) userName.textContent = this.currentUser.name;
-      if (userEmail) userEmail.textContent = this.currentUser.email;
-      
-      const initials = this.currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
-      if (userAvatar) userAvatar.textContent = initials;
-      if (profileAvatar) profileAvatar.textContent = initials;
-    } else {
-      // User is not logged in
-      if (loginButton) loginButton.classList.remove('hidden');
-      if (profileDropdown) profileDropdown.classList.add('hidden');
+    // Header state (Sign In vs. avatar) is owned by the shared nav component
+    // (public/components/nav.js) - this just keeps it in sync with our state.
+    const updateNavAuthUser = (window as any).updateNavAuthUser;
+    if (typeof updateNavAuthUser === 'function') {
+      updateNavAuthUser(this.currentUser);
     }
   }
 
@@ -2829,6 +2697,11 @@ class AuthManager {
       headers,
     });
   }
+}
+
+// Render the shared nav (public/components/nav.js) before AuthManager wires up Sign In
+if (typeof (window as any).initNav === 'function') {
+  (window as any).initNav({ activePage: 'home' });
 }
 
 // Initialize authentication manager

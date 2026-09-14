@@ -12,6 +12,8 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="icon" type="image/png" href="https://api.iconify.design/mdi/timer-outline.svg?color=%234f46e5&width=32&height=32">
   <link rel="apple-touch-icon" href="https://api.iconify.design/mdi/timer-outline.svg?color=%234f46e5&width=180&height=180">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
   
   
   <!-- API Configuration is now handled server-side via environment variables -->
@@ -22,7 +24,10 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  
+
+  <!-- Shared navigation -->
+  <script src="components/nav.js"></script>
+
   <!-- Custom styles for better date input formatting -->
   <style>
     /* Improve date input appearance with calendar icon */
@@ -85,27 +90,30 @@
       font-size: 16px;
     }
     
-    /* Custom flag icons for currency */
-    .flag-icon {
-      display: inline-block;
-      width: 20px;
-      height: 15px;
-      margin-right: 8px;
-      vertical-align: middle;
-      border-radius: 2px;
+    /* Home page tool tabs */
+    .tool-tab {
+      color: #6b7280;
+      border-color: transparent;
     }
-    
-    .flag-us { background: linear-gradient(to bottom, #b22234 0%, #b22234 7.7%, #ffffff 7.7%, #ffffff 15.4%, #3c3b6e 15.4%, #3c3b6e 23.1%, #ffffff 23.1%, #ffffff 30.8%, #b22234 30.8%, #b22234 38.5%, #ffffff 38.5%, #ffffff 46.2%, #3c3b6e 46.2%, #3c3b6e 53.9%, #ffffff 53.9%, #ffffff 61.6%, #b22234 61.6%, #b22234 69.3%, #ffffff 69.3%, #ffffff 77%, #3c3b6e 77%, #3c3b6e 84.7%, #ffffff 84.7%, #ffffff 92.4%, #b22234 92.4%, #b22234 100%); }
-    .flag-eu { background: linear-gradient(to bottom, #003399 0%, #003399 50%, #ffcc00 50%, #ffcc00 100%); }
-    .flag-gb { background: linear-gradient(45deg, #012169 0%, #012169 25%, #ffffff 25%, #ffffff 50%, #c8102e 50%, #c8102e 75%, #ffffff 75%, #ffffff 100%); }
-    .flag-jp { background: radial-gradient(circle, #bc002d 30%, #ffffff 30%); }
-    .flag-in { background: linear-gradient(to bottom, #ff9933 0%, #ff9933 33%, #ffffff 33%, #ffffff 66%, #138808 66%, #138808 100%); }
-    .flag-ca { background: linear-gradient(to right, #ff0000 0%, #ff0000 25%, #ffffff 25%, #ffffff 75%, #ff0000 75%, #ff0000 100%); }
-    .flag-au { background: linear-gradient(to bottom, #012169 0%, #012169 50%, #ffffff 50%, #ffffff 100%); }
-    .flag-ch { background: linear-gradient(to bottom, #ff0000 0%, #ff0000 50%, #ffffff 50%, #ffffff 100%); }
-    .flag-cn { background: linear-gradient(to bottom, #de2910 0%, #de2910 100%); }
-    .flag-kr { background: linear-gradient(to bottom, #ffffff 0%, #ffffff 50%, #003478 50%, #003478 100%); }
-    
+    .tool-tab:hover {
+      color: #4f46e5;
+    }
+    .tool-tab.active-tool-tab {
+      color: #4f46e5;
+      border-color: #4f46e5;
+      font-weight: 600;
+    }
+    .dark .tool-tab {
+      color: #9ca3af;
+    }
+    .dark .tool-tab:hover {
+      color: #818cf8;
+    }
+    .dark .tool-tab.active-tool-tab {
+      color: #818cf8;
+      border-color: #818cf8;
+    }
+
     /* Better spacing for compact layout */
     .compact-form {
       max-width: 100%;
@@ -124,76 +132,8 @@
 
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
   <div class="min-h-screen">
-    <!-- Top Navigation Bar -->
-    <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-4 py-2">
-      <div class="max-w-7xl mx-auto flex justify-between items-center">
-        <!-- Logo and Title -->
-        <div class="flex items-center space-x-3">
-          <h1 class="text-lg sm:text-xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-            <span class="text-base sm:text-lg">🛠️</span> 
-            <span class="hidden sm:inline">Utility Tools</span>
-            <span class="sm:hidden">Tools</span>
-          </h1>
-        </div>
-        
-        <!-- Right Side - Time and Menu -->
-        <div class="flex items-center space-x-2 sm:space-x-4">
-          <!-- User Local Time (Compact) -->
-          <div class="hidden sm:flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs font-medium">
-            <span>🕐</span>
-            <span id="navLocalTime" class="font-mono">Loading...</span>
-          </div>
-          
-          <!-- Login/Profile Button -->
-          <button id="loginButton" class="hidden bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-indigo-700 transition">
-            Sign In
-          </button>
-          <button id="profileButton" class="hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <div id="profileAvatar" class="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-              U
-            </div>
-          </button>
-          
-          <!-- Hamburger Menu Button -->
-          <button id="menuToggle" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-      
-      <!-- Mobile Menu (Hidden by default) -->
-      <div id="mobileMenu" class="hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <div class="px-4 py-3 space-y-3">
-          <!-- Time Display - Only Local and UTC -->
-          <div class="space-y-2">
-            <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-sm">
-              <span>🌍</span>
-              <span class="text-xs text-gray-600 dark:text-gray-400">Local:</span>
-              <span id="localTimeMobileMenu" class="font-mono">Loading...</span>
-            </div>
-            <div class="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
-              <span>⏰</span>
-              <span class="text-xs text-gray-600 dark:text-gray-400">UTC:</span>
-              <span id="utcTimeMobileMenu" class="font-mono">Loading...</span>
-            </div>
-          </div>
-          
-          <!-- Settings -->
-          <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-700 dark:text-gray-300">Dark Mode</span>
-              <button id="darkToggleMobile"
-                class="bg-gray-200 dark:bg-gray-700 p-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <span class="dark:hidden">🌙</span>
-                <span class="hidden dark:inline">☀️</span>
-      </button>
-    </div>
-          </div>
-        </div>
-      </div>
-  </nav>
+    <!-- Navigation -->
+    <div id="app-header"></div>
 
   <!-- Authentication Modal -->
   <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
@@ -329,38 +269,25 @@
     </div>
   </div>
 
-  <!-- User Profile Dropdown -->
-  <div id="userProfileDropdown" class="hidden fixed top-16 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-40 min-w-64">
-    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-      <div class="flex items-center space-x-3">
-        <div id="userAvatar" class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center text-white font-semibold">
-          U
-        </div>
-        <div>
-          <p id="userName" class="font-medium text-gray-900 dark:text-white">User Name</p>
-          <p id="userEmail" class="text-sm text-gray-500 dark:text-gray-400">user@example.com</p>
-        </div>
-      </div>
-    </div>
-    <div class="p-2">
-      <a href="/profile.html" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded block">
-        View Profile
-      </a>
-      <a href="/calendar.html" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded block">
-        My Calendar
-      </a>
-      <a href="/notes.html" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded block">
-        My Notes
-      </a>
-      <hr class="my-2 border-gray-200 dark:border-gray-700">
-      <button id="logout" class="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-        Sign Out
-      </button>
-    </div>
-  </div>
 
   <!-- Main Content -->
   <div class="py-8 px-4 sm:px-6 lg:px-8">
+      <!-- Tool Tabs -->
+      <div class="max-w-7xl mx-auto mb-6">
+        <div class="flex gap-1 sm:gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+          <button data-tab="timezone" class="tool-tab active-tool-tab px-3 sm:px-4 py-3 text-sm sm:text-base font-medium whitespace-nowrap border-b-2 transition">
+            🌍 Timezone
+          </button>
+          <button data-tab="currency" class="tool-tab px-3 sm:px-4 py-3 text-sm sm:text-base font-medium whitespace-nowrap border-b-2 transition">
+            💱 Currency
+          </button>
+          <button data-tab="dateEpoch" class="tool-tab px-3 sm:px-4 py-3 text-sm sm:text-base font-medium whitespace-nowrap border-b-2 transition">
+            📅 Date &amp; Epoch
+          </button>
+        </div>
+      </div>
+
+      <div id="tabPanel-timezone" class="tab-panel">
       <!-- Mobile Current Time Display -->
       <div class="lg:hidden mb-4 sm:mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
         <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
@@ -640,7 +567,9 @@
             </div>
         </div>
       </main>
+      </div>
 
+      <div id="tabPanel-dateEpoch" class="tab-panel hidden">
       <!-- Epoch Time Converter Section -->
       <section class="mt-12 max-w-7xl mx-auto">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -802,7 +731,9 @@
           </div>
         </div>
       </section>
+      </div>
 
+      <div id="tabPanel-currency" class="tab-panel hidden">
       <!-- Currency Converter Section -->
       <section class="mt-8 max-w-7xl mx-auto">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -872,6 +803,7 @@
           </div>
         </div>
       </section>
+      </div>
 
 
       <!-- Footer -->
@@ -906,17 +838,27 @@
       </footer>
     </div>
 
+    <script src="script.js"></script>
+
+    <!-- Home page tool tabs -->
     <script>
-      // Load the main JavaScript file dynamically
-      const script = document.createElement('script');
-      script.src = 'script.js?v=4&t=' + Date.now() + '&fresh=1&nocache=1&bypass=1';
-      script.onload = function () {
-        console.log('✅ Main script loaded successfully');
-      };
-      script.onerror = function () {
-        console.error('❌ Failed to load main script');
-      };
-      document.head.appendChild(script);
+      (function () {
+        var tabs = document.querySelectorAll('.tool-tab');
+        tabs.forEach(function (tab) {
+          tab.addEventListener('click', function () {
+            var target = tab.getAttribute('data-tab');
+
+            tabs.forEach(function (t) { t.classList.remove('active-tool-tab'); });
+            tab.classList.add('active-tool-tab');
+
+            document.querySelectorAll('.tab-panel').forEach(function (panel) {
+              panel.classList.add('hidden');
+            });
+            var activePanel = document.getElementById('tabPanel-' + target);
+            if (activePanel) activePanel.classList.remove('hidden');
+          });
+        });
+      })();
     </script>
 
     <!-- Console Filter for CORS Warnings -->

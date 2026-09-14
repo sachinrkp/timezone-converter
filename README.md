@@ -2,7 +2,7 @@
 
 A comprehensive utility web application featuring timezone conversion, currency exchange, date calculations, **user authentication**, **encrypted notes management**, **calendar integration**, and more. Built with TypeScript, Node.js, Tailwind CSS, and Firebase for modern web development.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge)](https://utility-tools.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge)](https://timezone-converter-pi.vercel.app/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/sachinrkp/utility-tools)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -11,7 +11,7 @@ A comprehensive utility web application featuring timezone conversion, currency 
 ## 🚀 Quick Start
 
 ### For Users
-- **🌐 [Try Live Demo](https://utility-tools.vercel.app/)** - No installation required
+- **🌐 [Try Live Demo](https://timezone-converter-pi.vercel.app/)** - No installation required
 - **📱 Mobile Friendly** - Works on all devices
 - **⚡ Fast & Lightweight** - Optimized for performance
 
@@ -42,25 +42,24 @@ npm run dev
 ## ✨ Features
 
 ### 🔐 **User Authentication & Security**
-- **Firebase Authentication**: Secure login with Google, Microsoft, and email/password
-- **User Profiles**: Personal profile management with photo upload
-- **Session Management**: Persistent login sessions across browser tabs
-- **Data Encryption**: AES-256-GCM encryption for all user notes and sensitive data
-- **Privacy Protection**: User data is encrypted and stored securely
+- **Firebase Authentication**: Secure login with Google and email/password
+- **User Profiles**: Personal profile management
+- **Persistent Sessions**: Firebase keeps you signed in across visits
+- **Section Password Protection**: Client-side AES encryption for password-protected note sections
+- **Cloud Storage**: Notes are stored in Firestore, scoped to your account by security rules
 
 ### 📝 **Advanced Notes Management**
 - **OneNote-Style Structure**: Hierarchical organization with Notebooks → Sections → Pages
 - **Password Protection**: Section-level password protection for sensitive notes
 - **Auto-Lock Security**: Sections automatically lock after 3 minutes of inactivity
-- **Rich Text Editing**: Full-featured text editor with formatting options
-- **Cloud Synchronization**: Real-time sync across all devices
+- **Rich Text Editing**: Full formatting toolbar (headings, bold/italic/underline, lists, checklists, quotes, links)
+- **Cloud Synchronization**: Notes sync in real time across every device you're signed in on
 - **Context Menu Actions**: Right-click to rename, move, or delete notebooks/sections/pages
 - **Color-Coded Organization**: Visual hierarchy with color coding for easy navigation
 
 ### 📅 **Calendar Integration**
 - **Personal Calendar**: Full calendar view with event management
 - **Holiday Integration**: Country-specific holidays and observances
-- **Google Calendar Sync**: Import events from Google Calendar
 - **Event Management**: Create, edit, and delete calendar events
 - **Timezone-Aware**: All events respect user's timezone settings
 
@@ -102,16 +101,14 @@ npm run dev
 - **Loading States**: Visual feedback during API calls and processing
 - **Context Menus**: Right-click functionality for all interactive elements
 
-### 📊 **Performance & Analytics**
+### 📊 **Performance**
 - **Optimized Loading**: Efficient caching and minimized bundle size
 - **Smart Caching**: City-to-timezone mappings cached for performance
 - **Error Handling**: Graceful fallbacks for API failures
-- **PWA Ready**: Fast loading with service worker support
-- **Debug Tools**: Comprehensive debugging utilities for development
 
 ## 🚀 Live Demo
 
-Visit the live application: [https://utility-tools.vercel.app/](https://utility-tools.vercel.app/)
+Visit the live application: [https://timezone-converter-pi.vercel.app/](https://timezone-converter-pi.vercel.app/)
 
 ## 🛠️ Technology Stack
 
@@ -119,23 +116,20 @@ Visit the live application: [https://utility-tools.vercel.app/](https://utility-
 - **TypeScript** - Type-safe JavaScript with modern ES6+ features
 - **Tailwind CSS** - Utility-first CSS framework for rapid UI development
 - **Vanilla JavaScript** - No framework dependencies for optimal performance
-- **Firebase SDK** - Authentication and real-time database integration
-- **Crypto-JS** - Client-side encryption for data security
+- **Firebase SDK** - Authentication and Firestore integration
+- **Quill** - Rich-text editor for notes
+- **DOMPurify** - Sanitizes rich-text note content before saving/rendering
+- **Web Crypto API** - Native browser AES-GCM + PBKDF2 for password-protected note sections (no library needed)
 
 ### Backend
 - **Node.js** - JavaScript runtime for server-side operations
-- **Express.js** - Minimal web framework for API endpoints
-- **Firebase Admin SDK** - Server-side authentication and database management
-- **AES-256-GCM Encryption** - Military-grade encryption for user data
-- **File-based Storage** - Efficient timezone and currency data management
+- **Express.js** - Minimal web framework for API endpoints (timezone conversion, config, health check)
 - **Environment Variables** - Secure API key management with dotenv
 
-### Authentication & Security
-- **Firebase Authentication** - Google, Microsoft, and email/password login
-- **JWT Tokens** - Secure session management
-- **AES-256-GCM** - End-to-end encryption for sensitive data
-- **Password Hashing** - bcrypt for secure password storage
-- **Session Management** - Persistent login across browser sessions
+### Authentication & Data
+- **Firebase Authentication** - Google and email/password login
+- **Cloud Firestore** - Per-user document storage for notes, secured by Firestore security rules
+  (each user can only read/write their own `users/{uid}` document)
 
 ### DevOps & Deployment
 - **Vercel** - Serverless deployment platform
@@ -213,24 +207,25 @@ npm run vercel-build
 ### Environment Setup
 
 #### Quick Start (No Configuration Required)
-The application works out of the box with mock authentication and local data storage. No external services are required for basic functionality.
+The timezone/currency conversion tools work without any account setup. Signing in and using Notes requires Firebase Authentication + Firestore to be configured (see below).
 
-#### Optional: Enhanced Features Setup
+#### Firebase Setup (required for login and Notes)
 
-##### Firebase Authentication (Optional)
-For real user authentication and cloud data storage:
-
-1. **Create Firebase Project**: Visit [Firebase Console](https://console.firebase.google.com/)
-2. **Enable Authentication**: Enable Google and email/password providers
-3. **Get Configuration**: Copy your Firebase config from Project Settings
-4. **Create .env file**: Add Firebase configuration variables
-
-##### Encryption Setup (Optional)
-For enhanced data security:
-
-1. **Generate Master Key**: Create a 32-character encryption key
-2. **Add to .env**: Set `MASTER_ENCRYPTION_KEY=your_32_character_key`
-3. **Restart server**: Encryption will be automatically enabled
+1. **Create a Firebase Project**: Visit [Firebase Console](https://console.firebase.google.com/)
+2. **Enable Authentication**: Authentication → Sign-in method → enable Google and Email/Password
+3. **Enable Firestore**: Build → Firestore Database → Create database
+4. **Add security rules** (Firestore → Rules) so each user can only read/write their own data:
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /users/{uid} {
+         allow read, write: if request.auth != null && request.auth.uid == uid;
+       }
+     }
+   }
+   ```
+5. **Get Configuration**: Project Settings → your web app → copy the config values into `.env` (see `env.example`)
 
 ##### Currency Exchange API (Optional)
 For real-time currency exchange rates:
@@ -240,9 +235,9 @@ For real-time currency exchange rates:
 3. **Restart server**: The app will automatically use real-time exchange rates
 
 #### Security Considerations
-- **Data Encryption**: All user notes are encrypted using AES-256-GCM (when enabled)
+- **Firestore Security Rules**: Notes are scoped per-user by `request.auth.uid` - without the rule above, Firestore denies all access by default
+- **Section Passwords**: Page content in password-protected sections is encrypted client-side with AES-GCM, using a key derived from the password via PBKDF2 (100k iterations) and a random per-section salt. Only the salt and a small verifier ciphertext are stored in Firestore - never the password itself - so reading the raw document doesn't expose it
 - **API Keys**: Store all sensitive keys in `.env` file (never commit to git)
-- **Local Storage**: Data is stored locally by default for privacy
 - **HTTPS**: Always use HTTPS in production for secure data transmission
 
 ## 🏗️ Project Structure
@@ -622,13 +617,19 @@ app.get('/api/custom-endpoint', (req, res) => {
 
 ## 🆕 Recent Updates
 
-### ✅ **v2.0.0 - Complete Productivity Suite** (Latest)
-- **🔐 User Authentication**: Firebase integration with Google, Microsoft, and email/password login
-- **📝 Advanced Notes**: OneNote-style hierarchical organization with encryption
-- **📅 Calendar Integration**: Full calendar with holiday integration and Google Calendar sync
-- **🔒 Data Security**: AES-256-GCM encryption for all user data
+### ✅ **v2.1.0 - Real Cross-Device Sync** (Latest)
+- **☁️ Firestore-backed Notes**: Notes now persist in Cloud Firestore instead of a local server file, so they actually survive and sync across devices/logins
+- **📝 Rich Text Editor**: Notes pages use a real formatting toolbar (headings, lists, checklists, etc.) instead of a plain textarea
+- **🧹 Removed mock auth endpoints**: Firebase Authentication is the single source of truth for login; the old fake `/api/auth/*` endpoints are gone
+- **🎨 Nav consistency**: Profile page now has the same profile menu/sign-out as Notes/Calendar
+- **🗑️ Removed non-functional stubs**: 2FA toggle, data export, and "Sync Google Calendar" buttons removed (they never did anything)
+
+### ✅ **v2.0.0 - Complete Productivity Suite**
+- **🔐 User Authentication**: Firebase integration with Google and email/password login
+- **📝 Advanced Notes**: OneNote-style hierarchical organization
+- **📅 Calendar Integration**: Full calendar with holiday integration
 - **🎨 Enhanced UI**: Profile management, context menus, and mobile optimization
-- **⚡ Performance**: Optimized code with debugging utilities and better error handling
+- **⚡ Performance**: Optimized code and better error handling
 
 ### ✅ **v1.5.0 - Smart Features**
 - **🌍 Smart City Mapping**: Intelligent city-to-timezone detection

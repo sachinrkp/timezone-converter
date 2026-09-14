@@ -12,6 +12,8 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="icon" type="image/png" href="https://api.iconify.design/mdi/timer-outline.svg?color=%234f46e5&width=32&height=32">
   <link rel="apple-touch-icon" href="https://api.iconify.design/mdi/timer-outline.svg?color=%234f46e5&width=180&height=180">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
   
   <!-- Firebase Config (loads config from server) -->
   <script src="firebase-config.js"></script>
@@ -19,12 +21,54 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  
-  <!-- Crypto-JS for encryption -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-  
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <!-- Shared navigation -->
+  <script src="components/nav.js"></script>
+
+  <!-- DOMPurify (sanitizes rich-text note content before save/render) -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+
+  <!-- Quill rich-text editor -->
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.js"></script>
+
   <!-- Custom styles -->
   <style>
+    .ql-container {
+      min-height: 20rem;
+      font-size: 1rem;
+      border-bottom-left-radius: 0.5rem;
+      border-bottom-right-radius: 0.5rem;
+    }
+
+    .ql-toolbar {
+      border-top-left-radius: 0.5rem;
+      border-top-right-radius: 0.5rem;
+    }
+
+    html.dark .ql-toolbar {
+      background-color: #374151;
+      border-color: #4b5563;
+    }
+
+    html.dark .ql-container {
+      background-color: #1f2937;
+      border-color: #4b5563;
+      color: #f3f4f6;
+    }
+
+    html.dark .ql-snow .ql-stroke {
+      stroke: #d1d5db;
+    }
+
+    html.dark .ql-snow .ql-fill {
+      fill: #d1d5db;
+    }
+
+    html.dark .ql-snow .ql-picker {
+      color: #d1d5db;
+    }
     .notebook-sidebar {
       min-height: calc(100vh - 4rem);
       border-right: 1px solid #e5e7eb;
@@ -155,60 +199,23 @@
 
 <body class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
   <!-- Navigation -->
-  <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-16">
-        <div class="flex items-center">
-          <a href="/" class="flex items-center space-x-2">
-            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <span class="text-white font-bold text-sm">UT</span>
-            </div>
-            <span class="text-xl font-bold text-gray-800 dark:text-gray-200">Utility Tools</span>
-          </a>
-        </div>
-        
-        <div class="flex items-center space-x-4">
-          <!-- Cloud Sync Status -->
-          <div id="syncStatus" class="flex items-center space-x-2 text-sm">
-            <div id="syncIndicator" class="w-2 h-2 rounded-full bg-gray-400"></div>
-            <span id="syncText" class="text-gray-500">Offline</span>
-          </div>
+  <div id="app-header"></div>
 
-          <!-- User Profile Dropdown -->
-          <div class="relative" id="userProfileSection" style="display: none;">
-            <button id="profileButton" class="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition">
-              <div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
-                <span id="userInitials" class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">SP</span>
-              </div>
-              <span id="userName" class="hidden sm:block">Sachin Patel</span>
-            </button>
-            
-            <!-- Profile Dropdown -->
-            <div id="userProfileDropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hidden z-50">
-              <div class="py-1">
-                <a href="/profile.html" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                  👤 My Profile
-                </a>
-                <a href="/calendar.html" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                  📅 My Calendar
-                </a>
-                <a href="/notes.html" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                  📝 My Notes
-                </a>
-                <hr class="my-1 border-gray-200 dark:border-gray-700">
-                <button id="logoutButton" class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                  🚪 Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </nav>
+  <!-- Email verification gate -->
+  <div id="verifyEmailGate" class="hidden max-w-md mx-auto mt-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+    <div class="text-5xl mb-4">📧</div>
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">Verify your email</h2>
+    <p class="text-gray-600 dark:text-gray-400 mb-6">
+      We sent a verification link to <span id="verifyEmailAddress" class="font-medium"></span>.
+      Please check your inbox, click the link, then reload this page.
+    </p>
+    <button id="resendVerificationBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+      Resend verification email
+    </button>
+  </div>
 
   <!-- Main Content -->
-  <main class="flex h-screen">
+  <main class="flex h-screen" id="mainContent">
     <!-- Notebook Sidebar -->
     <div class="notebook-sidebar w-64 bg-white dark:bg-gray-800 p-4 mobile-hidden" id="notebookSidebar">
         <div class="flex items-center justify-between mb-4">
@@ -315,8 +322,7 @@
         <div id="pageEditor" class="space-y-4">
           <input type="text" id="pageTitleInput" placeholder="Page title..."
             class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-xl font-semibold">
-          <textarea id="pageContentInput" placeholder="Start writing your notes..."
-            class="w-full h-96 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"></textarea>
+          <div id="pageContentEditor"></div>
         </div>
       </div>
     </div>
@@ -499,6 +505,66 @@
   <!-- Scripts -->
   <script src="script.js"></script>
   <script>
+    // Notebook/section/page names are user input rendered via innerHTML in the
+    // sidebar lists below - escape them so a name like "<img onerror=...>" can't
+    // execute as stored XSS.
+    function escapeHtml(value) {
+      const div = document.createElement('div');
+      div.textContent = value ?? '';
+      return div.innerHTML;
+    }
+
+    // Section password protection: the password itself is NEVER stored (not even
+    // hashed) - only a random per-section salt and a small "verifier" ciphertext.
+    // The AES-GCM key is derived from the password + salt via PBKDF2 each time it's
+    // needed, and kept in memory only for the current unlocked session. Unlocking
+    // means "decrypting the verifier back to the known constant 'verify'" - if the
+    // password is wrong, AES-GCM's built-in authentication makes decryption fail
+    // outright, so there's nothing here for someone with raw document access to
+    // read the password from (unlike the previous scheme, which stored it in plain
+    // text right next to the encrypted content).
+    function bufToBase64(buf) {
+      return btoa(String.fromCharCode(...new Uint8Array(buf)));
+    }
+
+    function base64ToBuf(b64) {
+      return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    }
+
+    function randomSaltBase64() {
+      return bufToBase64(crypto.getRandomValues(new Uint8Array(16)));
+    }
+
+    async function deriveAesKey(password, saltB64) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: base64ToBuf(saltB64), iterations: 100000, hash: 'SHA-256' },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    }
+
+    async function encryptWithPassword(text, password, saltB64) {
+      const key = await deriveAesKey(password, saltB64);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(text));
+      return `${bufToBase64(iv)}:${bufToBase64(ciphertext)}`;
+    }
+
+    async function decryptWithPassword(payload, password, saltB64) {
+      const [ivB64, dataB64] = payload.split(':');
+      const key = await deriveAesKey(password, saltB64);
+      const plainBuf = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: base64ToBuf(ivB64) }, key, base64ToBuf(dataB64)
+      );
+      return new TextDecoder().decode(plainBuf);
+    }
+
     // Notes page specific functionality
     class NotesPage {
       constructor() {
@@ -510,12 +576,32 @@
         this.currentSection = null;
         this.currentPage = null;
         this.unlockedSections = new Set();
+        this.unlockedPasswords = new Map(); // sectionId -> password, in-memory only, never persisted
         this.sectionLockTimers = new Map(); // Track auto-lock timers
+        this.quill = new Quill('#pageContentEditor', {
+          theme: 'snow',
+          modules: {
+            toolbar: [
+              [{ header: [1, 2, 3, false] }],
+              ['bold', 'italic', 'underline', 'strike'],
+              [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
+              ['blockquote', 'link'],
+              ['clean']
+            ]
+          }
+        });
         this.initializeAuth();
         this.setupEventListeners();
       }
 
       async initializeAuth() {
+        initNav({ activePage: 'notes' });
+        document.getElementById('navExtraSlot').innerHTML =
+          '<div class="flex items-center space-x-2 text-sm mr-1">' +
+          '<div id="syncIndicator" class="w-2 h-2 rounded-full bg-gray-400"></div>' +
+          '<span id="syncText" class="text-gray-500 hidden sm:inline">Offline</span>' +
+          '</div>';
+
         if (typeof firebase !== 'undefined') {
           // Initialize Firebase first
           try {
@@ -539,37 +625,22 @@
           }
 
           firebase.auth().onAuthStateChanged(async (user) => {
+            updateNavAuthUser(user);
             if (user) {
+              if (!requireVerifiedEmail(user)) return;
               this.currentUser = user;
               this.authToken = await user.getIdToken();
-              this.updateUI();
-              await this.loadData();
-              this.renderNotebooks();
+              this.initFirestoreSync();
             } else {
+              if (this.unsubscribeNotesSync) {
+                this.unsubscribeNotesSync();
+              }
               window.location.href = '/';
             }
           });
         } else {
           window.location.href = '/';
         }
-      }
-
-      updateUI() {
-        const userProfileSection = document.getElementById('userProfileSection');
-        
-        if (this.currentUser) {
-          userProfileSection.style.display = 'block';
-          
-          document.getElementById('userName').textContent = this.currentUser.displayName || 'User';
-          document.getElementById('userInitials').textContent = this.getInitials(this.currentUser.displayName || this.currentUser.email);
-        } else {
-          userProfileSection.style.display = 'none';
-        }
-      }
-
-      getInitials(name) {
-        if (!name) return 'U';
-        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
       }
 
       setupEventListeners() {
@@ -632,11 +703,6 @@
         document.getElementById('backToNotebooksBtn').addEventListener('click', () => this.backToNotebooks());
         document.getElementById('backToSectionsBtn').addEventListener('click', () => this.backToSections());
 
-        
-        // Profile dropdown
-        document.getElementById('profileButton').addEventListener('click', () => this.toggleProfileDropdown());
-        document.getElementById('logoutButton').addEventListener('click', () => this.logout());
-
         // Context menu events
         document.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
         document.addEventListener('click', (e) => {
@@ -676,37 +742,42 @@
         }
       }
 
-      async loadData() {
+      initFirestoreSync() {
         if (!this.currentUser) return;
-        
+
         this.updateSyncStatus('loading', 'Loading...');
-        
-        try {
-          // Try to load from cloud storage first
-          const response = await fetch(`/api/notes?uid=${this.currentUser.uid}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${this.authToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
+
+        if (this.unsubscribeNotesSync) {
+          this.unsubscribeNotesSync();
+        }
+
+        const docRef = firebase.firestore().collection('users').doc(this.currentUser.uid);
+
+        // onSnapshot fires immediately with the current data, then again on every
+        // change (including from other devices/tabs) - this is what makes notes
+        // actually sync across devices instead of being stuck in localStorage.
+        this.unsubscribeNotesSync = docRef.onSnapshot((docSnap) => {
+          if (docSnap.exists) {
+            const data = docSnap.data();
             this.notebooks = data.notebooks || [];
             this.sections = data.sections || [];
             this.pages = data.pages || [];
-            console.log('✅ Data loaded from cloud storage');
+            console.log('✅ Data loaded from Firestore');
             this.updateSyncStatus('synced', 'Synced');
           } else {
-            // Fallback to localStorage
             this.loadFromLocalStorage();
           }
-        } catch (error) {
-          console.error('Error loading data from cloud:', error);
-          // Fallback to localStorage
+
+          // Don't touch the open page editor here - if the user is mid-edit on
+          // this device, a remote update shouldn't clobber unsaved text.
+          this.renderNotebooks();
+          this.renderSections();
+          this.renderPages();
+        }, (error) => {
+          console.error('Error loading data from Firestore:', error);
           this.loadFromLocalStorage();
-        }
+          this.renderNotebooks();
+        });
       }
 
       loadFromLocalStorage() {
@@ -755,54 +826,27 @@
 
       async saveData() {
         if (!this.currentUser) return;
-        
+
         const data = {
           notebooks: this.notebooks,
           sections: this.sections,
           pages: this.pages,
-          uid: this.currentUser.uid
+          updatedAt: new Date().toISOString()
         };
-        
+
         this.updateSyncStatus('loading', 'Saving...');
-        
+
         try {
-          // Save to cloud storage
-          const response = await fetch('/api/notes', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${this.authToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-          });
-          
-          if (response.ok) {
-            console.log('✅ Data saved to cloud storage');
-            this.updateSyncStatus('synced', 'Synced');
-          } else {
-            console.error('Failed to save to cloud storage');
-            this.updateSyncStatus('error', 'Sync Failed');
-          }
+          await firebase.firestore().collection('users').doc(this.currentUser.uid).set(data);
+          console.log('✅ Data saved to Firestore');
+          this.updateSyncStatus('synced', 'Synced');
         } catch (error) {
-          console.error('Error saving to cloud:', error);
+          console.error('Error saving to Firestore:', error);
           this.updateSyncStatus('error', 'Sync Failed');
         }
-        
-        // Also save to localStorage as backup
+
+        // Also save to localStorage as an instant-load cache (not the source of truth)
         localStorage.setItem(`userNotesData_${this.currentUser.uid}`, JSON.stringify(data));
-      }
-
-      encrypt(text, password) {
-        return CryptoJS.AES.encrypt(text, password).toString();
-      }
-
-      decrypt(encryptedText, password) {
-        try {
-          const bytes = CryptoJS.AES.decrypt(encryptedText, password);
-          return bytes.toString(CryptoJS.enc.Utf8);
-        } catch (error) {
-          return null;
-        }
       }
 
       renderNotebooks() {
@@ -818,7 +862,7 @@
                  data-context-type="notebook"
                  style="background-color: ${isActive ? notebookColor : 'transparent'}; border-color: ${notebookColor};">
               <div class="flex items-center justify-between">
-                <span class="font-medium" style="color: ${isActive ? 'white' : '#1f2937'}">${notebook.name}</span>
+                <span class="font-medium" style="color: ${isActive ? 'white' : '#1f2937'}">${escapeHtml(notebook.name)}</span>
                 <span class="text-xs text-gray-500">${this.getNotebookPageCount(notebook.id)}</span>
               </div>
             </div>
@@ -851,7 +895,7 @@
                  style="background-color: ${isActive ? sectionColor : 'transparent'}; border-color: ${sectionColor};">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
-                  <span class="font-medium" style="color: ${isActive ? '#1f2937' : '#374151'}">${section.name}</span>
+                  <span class="font-medium" style="color: ${isActive ? '#1f2937' : '#374151'}">${escapeHtml(section.name)}</span>
                   ${section.isPrivate ? `<button class="lock-toggle-btn text-xs p-1 rounded hover:bg-gray-200" data-section-id="${section.id}">${lockIcon}</button>` : ''}
                 </div>
                 <div class="flex items-center space-x-1">
@@ -905,8 +949,8 @@
                  style="background-color: ${page.id === this.currentPage?.id ? pageColor : 'transparent'}; border-color: ${pageColor};">
               <div class="flex items-center justify-between">
                 <div class="flex flex-col">
-                  <span class="font-medium text-gray-800 dark:text-gray-200">${page.title}</span>
-                  ${!this.currentSection ? `<span class="text-xs text-gray-500">${notebook?.name} → ${section?.name}</span>` : ''}
+                  <span class="font-medium text-gray-800 dark:text-gray-200">${escapeHtml(page.title)}</span>
+                  ${!this.currentSection ? `<span class="text-xs text-gray-500">${escapeHtml(notebook?.name)} → ${escapeHtml(section?.name)}</span>` : ''}
                 </div>
                 <span class="text-xs text-gray-500">${this.formatDate(page.updatedAt)}</span>
               </div>
@@ -1062,37 +1106,55 @@
         document.getElementById('pageView').classList.add('hidden');
       }
 
-      showPageView() {
+      async showPageView() {
         document.getElementById('welcomeView').classList.add('hidden');
         document.getElementById('pageView').classList.remove('hidden');
-        
+
         if (this.currentPage) {
           document.getElementById('currentPageTitle').textContent = this.currentPage.title;
           document.getElementById('pageTitleInput').value = this.currentPage.title;
-          
+
           // Only show content if section is unlocked
           if (this.currentSection && this.currentSection.isPrivate) {
             if (this.unlockedSections.has(this.currentSection.id)) {
-              // Section is unlocked, decrypt and show content
-              const decryptedContent = this.decrypt(this.currentPage.content, this.currentSection.password);
-              document.getElementById('pageContentInput').value = decryptedContent || '';
-              document.getElementById('pageContentInput').disabled = false;
+              if (!this.currentPage.content) {
+                // Brand new, never-saved page - nothing to decrypt yet
+                this.setEditorContent('');
+              } else {
+                try {
+                  const password = this.unlockedPasswords.get(this.currentSection.id);
+                  const decryptedContent = await decryptWithPassword(this.currentPage.content, password, this.currentSection.salt);
+                  this.setEditorContent(decryptedContent || '');
+                } catch (error) {
+                  this.setEditorContent('');
+                  this.showToast('Failed to decrypt page content', 'error');
+                }
+              }
+              this.quill.enable(true);
             } else {
               // Section is locked, show encrypted placeholder
-              document.getElementById('pageContentInput').value = '🔒 Content is locked. Please unlock the section to view content.';
-              document.getElementById('pageContentInput').disabled = true;
+              this.quill.setText('🔒 Content is locked. Please unlock the section to view content.');
+              this.quill.enable(false);
             }
           } else {
             // Non-private section, show content normally
-            document.getElementById('pageContentInput').value = this.currentPage.content || '';
-            document.getElementById('pageContentInput').disabled = false;
+            this.setEditorContent(this.currentPage.content || '');
+            this.quill.enable(true);
           }
         } else {
           document.getElementById('currentPageTitle').textContent = 'New Page';
           document.getElementById('pageTitleInput').value = '';
-          document.getElementById('pageContentInput').value = '';
-          document.getElementById('pageContentInput').disabled = false;
+          this.quill.setText('');
+          this.quill.enable(true);
         }
+      }
+
+      // Loading HTML through the clipboard converter (rather than writing
+      // quill.root.innerHTML directly) keeps Quill's internal document model
+      // in sync, so editing/undo and checklist toggles keep working afterwards.
+      setEditorContent(html) {
+        const sanitized = DOMPurify.sanitize(html);
+        this.quill.setContents(this.quill.clipboard.convert(sanitized));
       }
 
       showAddNotebookModal() {
@@ -1156,7 +1218,7 @@
         this.showToast('Notebook created successfully', 'success');
       }
 
-      addSection() {
+      async addSection() {
         const name = document.getElementById('sectionName').value;
         const isPrivate = document.getElementById('sectionIsPrivate').checked;
         const password = document.getElementById('sectionPassword').value;
@@ -1171,10 +1233,18 @@
           notebookId: this.currentNotebook.id,
           name,
           isPrivate,
-          password: isPrivate ? password : null,
           createdAt: new Date().toISOString()
         };
-        
+
+        if (isPrivate) {
+          // Only a salt + a small verifier ciphertext are stored - never the password itself.
+          section.salt = randomSaltBase64();
+          section.verifier = await encryptWithPassword('verify', password, section.salt);
+          this.unlockedPasswords.set(section.id, password);
+          this.unlockedSections.add(section.id);
+          this.startAutoLockTimer(section.id);
+        }
+
         this.sections.push(section);
         this.saveData();
         this.renderSections();
@@ -1211,44 +1281,53 @@
         this.showToast('Page created successfully', 'success');
       }
 
-      savePage() {
+      async savePage() {
         if (!this.currentPage) {
           this.showToast('No page selected', 'warning');
           return;
         }
 
         const title = document.getElementById('pageTitleInput').value;
-        const content = document.getElementById('pageContentInput').value;
+        const content = DOMPurify.sanitize(this.quill.root.innerHTML);
 
         console.log('💾 Saving page:', {
           pageId: this.currentPage.id,
           title: title,
-          content: content,
           currentSection: this.currentSection ? this.currentSection.id : 'null',
           isPrivate: this.currentSection ? this.currentSection.isPrivate : 'null'
         });
 
         this.currentPage.title = title;
-        
+
         if (this.currentSection && this.currentSection.isPrivate) {
-          this.currentPage.content = this.encrypt(content, this.currentSection.password);
+          const password = this.unlockedPasswords.get(this.currentSection.id);
+          if (!password) {
+            this.showToast('Section is locked - cannot save', 'error');
+            return;
+          }
+          this.currentPage.content = await encryptWithPassword(content, password, this.currentSection.salt);
           console.log('🔒 Encrypted content for private section');
         } else {
           this.currentPage.content = content;
           console.log('🔓 Saved plain content');
         }
-        
+
         this.currentPage.updatedAt = new Date().toISOString();
         this.saveData();
         this.renderPages(); // Refresh pages list to show updated title
         this.showToast('Page saved successfully', 'success');
       }
 
-      unlockSection() {
+      async unlockSection() {
         const password = document.getElementById('passwordInput').value;
         const section = this.sections.find(s => s.id === (this.currentSection ? this.currentSection.id : null));
-        
-        if (password === section.password) {
+        if (!section) return;
+
+        try {
+          const check = await decryptWithPassword(section.verifier, password, section.salt);
+          if (check !== 'verify') throw new Error('Incorrect password');
+
+          this.unlockedPasswords.set(section.id, password);
           this.unlockedSections.add(section.id);
           this.startAutoLockTimer(section.id);
           this.hidePasswordModal();
@@ -1256,7 +1335,7 @@
           document.getElementById('pagesSidebar').style.display = 'block';
           this.renderPages();
           this.showWelcomeView();
-        } else {
+        } catch (error) {
           this.showToast('Incorrect password', 'error');
         }
       }
@@ -1277,6 +1356,7 @@
 
       lockSection(sectionId) {
         this.unlockedSections.delete(sectionId);
+        this.unlockedPasswords.delete(sectionId);
         this.clearAutoLockTimer(sectionId);
         
         // If this was the current section, clear it
@@ -1408,38 +1488,6 @@
         const mobileMenuDropdown = document.getElementById('mobileMenuDropdown');
         if (mobileMenuDropdown) {
           mobileMenuDropdown.classList.toggle('hidden');
-        }
-      }
-
-      toggleProfileDropdown() {
-        const profileDropdown = document.getElementById('userProfileDropdown');
-        if (profileDropdown) {
-          profileDropdown.classList.toggle('hidden');
-        }
-      }
-
-      hideProfileDropdown() {
-        const profileDropdown = document.getElementById('userProfileDropdown');
-        if (profileDropdown) {
-          profileDropdown.classList.add('hidden');
-        }
-      }
-
-      async logout() {
-        try {
-          if (this.currentUser && typeof firebase !== 'undefined') {
-            await firebase.auth().signOut();
-          }
-        } catch (error) {
-          console.error('Logout error:', error);
-        } finally {
-          this.currentUser = null;
-          this.authToken = null;
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('currentUser');
-          this.updateUI();
-          this.hideProfileDropdown();
-          this.showToast('Logged out successfully', 'success');
         }
       }
 
@@ -1600,7 +1648,7 @@
               <option value="">Select a section...</option>
               ${availableSections.map(section => {
                 const notebook = this.notebooks.find(n => n.id === section.notebookId);
-                return `<option value="${section.id}">${notebook?.name || 'Unknown'} → ${section.name}</option>`;
+                return `<option value="${section.id}">${escapeHtml(notebook?.name || 'Unknown')} → ${escapeHtml(section.name)}</option>`;
               }).join('')}
             </select>
           `;
@@ -1610,8 +1658,8 @@
             <p class="text-gray-600 dark:text-gray-400 mb-4">Select a notebook to move this section to:</p>
             <select id="moveTargetSelect" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100">
               <option value="">Select a notebook...</option>
-              ${this.notebooks.map(notebook => 
-                `<option value="${notebook.id}">${notebook.name}</option>`
+              ${this.notebooks.map(notebook =>
+                `<option value="${notebook.id}">${escapeHtml(notebook.name)}</option>`
               ).join('')}
             </select>
           `;
@@ -1640,20 +1688,20 @@
               <option value="">Select a section...</option>
               ${availableSections.map(section => {
                 const notebook = this.notebooks.find(n => n.id === section.notebookId);
-                return `<option value="${section.id}">${notebook?.name} → ${section.name}</option>`;
+                return `<option value="${section.id}">${escapeHtml(notebook?.name)} → ${escapeHtml(section.name)}</option>`;
               }).join('')}
             </select>
           `;
         } else if (this.contextMenuType === 'section') {
           // Show notebooks to move section to
           const availableNotebooks = this.notebooks.filter(n => n.id !== this.currentNotebook?.id);
-          
+
           content = `
             <p class="text-gray-600 dark:text-gray-400 mb-4">Select a notebook to move this section to:</p>
             <select id="moveTargetSelect" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100">
               <option value="">Select a notebook...</option>
-              ${availableNotebooks.map(notebook => 
-                `<option value="${notebook.id}">${notebook.name}</option>`
+              ${availableNotebooks.map(notebook =>
+                `<option value="${notebook.id}">${escapeHtml(notebook.name)}</option>`
               ).join('')}
             </select>
           `;
